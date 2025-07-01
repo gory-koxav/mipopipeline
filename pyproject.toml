@@ -1,0 +1,10 @@
+[project]
+name = "l2025022-mipo-operationsystem-uv"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "onvif-zeep>=0.2.12",
+    "opencv-python>=4.11.0.86",
+]
