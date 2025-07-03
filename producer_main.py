@@ -45,6 +45,8 @@ def main():
             # - 반환값: List[CapturedImage]
             captured_images = onvif_repo.capture_images_from_all(cameras)
             print(f"캡처 완료: {len(captured_images)}개의 이미지를 메모리에 로드했습니다.")
+            for capture in captured_images:
+                cv2.imwrite(f"./data/{capture.image_id}.jpg", capture.image_data)  # 이미지 파일로 저장 (디버깅용)
             # print(f"캡처된 이미지 객체: {[img for img in captured_images]}") # 디버깅용
             # show_captured_image(captured_images[0].image_data)  # 첫 번째 이미지 표시 (로컬 환경에서 실행 시)
             

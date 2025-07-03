@@ -11,17 +11,17 @@ OUTPUT_DIR = BASE_DIR / "output"
 # 카메라 정보 리스트
 CAMERA_INFO = [
     {"bay": "3bay_north", "name": "C02", "host": "10.150.160.183", "port": 80, "username": "admin", "password": "Hmd!!2503700"},
-    # {"bay": "3bay_north", "name": "C04", "host": "10.150.160.184", "port": 80, "username": "admin", "password": "Hmd!!2503700"},
-    # {"bay": "3bay_north", "name": "C06", "host": "10.150.160.193", "port": 80, "username": "admin", "password": "Hmd!!2503700"},
-    # {"bay": "3bay_north", "name": "C07", "host": "10.150.160.194", "port": 80, "username": "admin", "password": "Hmd!!2503700"},
-    # {"bay": "3bay_north", "name": "C09", "host": "10.150.160.209", "port": 80, "username": "admin", "password": "Hmd!!2503700"},
-    # {"bay": "3bay_north", "name": "C11", "host": "10.150.160.211", "port": 80, "username": "admin", "password": "Hmd!!2503700"},
-    # {"bay": "3bay_north", "name": "D02", "host": "10.150.160.221", "port": 80, "username": "admin", "password": "Hmd!!2503700"},
-    # {"bay": "3bay_north", "name": "D04", "host": "10.150.160.222", "port": 80, "username": "admin", "password": "Hmd!!2503700"},
-    # {"bay": "3bay_north", "name": "D06", "host": "10.150.160.224", "port": 80, "username": "admin", "password": "Hmd!!2503700"},
-    # {"bay": "3bay_north", "name": "D07", "host": "10.150.160.225", "port": 80, "username": "admin", "password": "Hmd!!2503700"},
-    # {"bay": "3bay_north", "name": "D09", "host": "10.150.160.226", "port": 80, "username": "admin", "password": "Hmd!!2503700"},
-    # {"bay": "3bay_north", "name": "D11", "host": "10.150.160.227", "port": 80, "username": "admin", "password": "Hmd!!2503700"},
+    {"bay": "3bay_north", "name": "C04", "host": "10.150.160.184", "port": 80, "username": "admin", "password": "Hmd!!2503700"},
+    {"bay": "3bay_north", "name": "C06", "host": "10.150.160.193", "port": 80, "username": "admin", "password": "Hmd!!2503700"},
+    {"bay": "3bay_north", "name": "C07", "host": "10.150.160.194", "port": 80, "username": "admin", "password": "Hmd!!2503700"},
+    {"bay": "3bay_north", "name": "C09", "host": "10.150.160.209", "port": 80, "username": "admin", "password": "Hmd!!2503700"},
+    {"bay": "3bay_north", "name": "C11", "host": "10.150.160.211", "port": 80, "username": "admin", "password": "Hmd!!2503700"},
+    {"bay": "3bay_north", "name": "D02", "host": "10.150.160.221", "port": 80, "username": "admin", "password": "Hmd!!2503700"},
+    {"bay": "3bay_north", "name": "D04", "host": "10.150.160.222", "port": 80, "username": "admin", "password": "Hmd!!2503700"},
+    {"bay": "3bay_north", "name": "D06", "host": "10.150.160.224", "port": 80, "username": "admin", "password": "Hmd!!2503700"},
+    {"bay": "3bay_north", "name": "D07", "host": "10.150.160.225", "port": 80, "username": "admin", "password": "Hmd!!2503700"},
+    {"bay": "3bay_north", "name": "D09", "host": "10.150.160.226", "port": 80, "username": "admin", "password": "Hmd!!2503700"},
+    {"bay": "3bay_north", "name": "D11", "host": "10.150.160.227", "port": 80, "username": "admin", "password": "Hmd!!2503700"},
     ]
 
 # CAMERA_INFO = [

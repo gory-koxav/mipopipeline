@@ -2,8 +2,9 @@
 from datetime import datetime
 from typing import List, Optional
 
-from ..inference.facade import AIInferenceFacade
-from .models import SceneState, Event
+from cctv_event_detector.inference.facade import AIInferenceFacade
+from cctv_event_detector.core.models import SceneState, Event
+from cctv_event_detector.core.models import CapturedImage
 
 # --- Producer를 위한 서비스 ---
 class StateCreationService:
@@ -11,9 +12,9 @@ class StateCreationService:
     def __init__(self, ai_facade: AIInferenceFacade):
         self._ai_facade = ai_facade
 
-    def create_state_from_images(self, image_paths: List[str]) -> SceneState:
+    def create_state_from_images(self, captured_images: List[CapturedImage]) -> SceneState:
         # AI 추론 실행
-        ai_results = self._ai_facade.process(image_paths)
+        ai_results = self._ai_facade.process_batch(captured_images)
         
         # 결과를 SceneState 객체로 변환 (비즈니스 로직 후처리)
         print("Creating SceneState from AI results.")

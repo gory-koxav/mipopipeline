@@ -1,7 +1,9 @@
 # cctv_event_detector/inference/facade.py
 from typing import List, Dict, Any
-from .strategies import InferenceStrategy, MockObjectDetector, MockAssemblyClassifier
+
+from cctv_event_detector.inference.strategies import InferenceStrategy, MockObjectDetector, MockAssemblyClassifier
 from cctv_event_detector.core.models import CapturedImage # 추가
+
 
 class AIInferenceFacade:
     def __init__(self):
