@@ -1,7 +1,7 @@
 # cctv_event_detector/inference/facade.py
 from typing import List, Dict, Any
 
-from cctv_event_detector.inference.strategies import InferenceStrategy, MockObjectDetector, MockAssemblyClassifier
+from cctv_event_detector.inference.strategies import InferenceStrategy, MockObjectDetector, MockAssemblyClassifier, SamPinjigSegmenter
 from cctv_event_detector.core.models import CapturedImage # 추가
 
 
@@ -11,6 +11,7 @@ class AIInferenceFacade:
         self._pipeline: List[InferenceStrategy] = [
             MockObjectDetector(),
             MockAssemblyClassifier(),
+            SamPinjigSegmenter(),
         ]
 
     def process_batch(self, captured_images: List[CapturedImage]) -> Dict[str, Any]:

@@ -84,18 +84,6 @@ class SamPinjigSegmenter(InferenceStrategy):
         os.makedirs(output_dir, exist_ok=True)
         print(f"Saving classified crops to: {output_dir}")
 
-        # ★★★ 추가된 기능: 전체 마스크 오버레이 이미지 저장 ★★★
-        if masks: # 마스크가 하나 이상 있을 때만 실행
-            # 모든 필터링된 마스크가 중첩된 이미지를 생성합니다.
-            overlay_image = self._draw_masks(original_image.copy(), masks)
-            
-            # 폴더 내에서 쉽게 찾을 수 있도록 파일명을 지정하여 저장합니다.
-            overlay_filename = "_OVERLAY_RESULT.jpg"
-            overlay_path = os.path.join(output_dir, overlay_filename)
-            cv2.imwrite(overlay_path, overlay_image)
-            print(f"Saved overlay image to: {overlay_path}")
-        # ★★★ 기능 추가 완료 ★★★
-
         for i, mask_ann in enumerate(masks):
             bbox = mask_ann.get('bbox')
             if not bbox:
@@ -138,12 +126,10 @@ class SamPinjigSegmenter(InferenceStrategy):
             top1_class_name = self.cls_model.names[r.probs.top1]
             base_filename = f"mask_{i:03d}_classified.png"
             
-            # if top1_class_name == 'pinjig':
-            #     output_filename = f"pinjig_{base_filename}"
-            # else:
-            #     output_filename = base_filename
-
-            output_filename = f"{top1_class_name}_{base_filename}"
+            if top1_class_name == 'pinjig':
+                output_filename = f"pinjig_{base_filename}"
+            else:
+                output_filename = base_filename
             
             output_path = os.path.join(output_dir, output_filename)
             cv2.imwrite(output_path, annotated_image)

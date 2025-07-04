@@ -5,10 +5,12 @@ import numpy as np
 import cv2
 import datetime
 from typing import Dict, Any, List
-import glob
+import glob # 파일 경로 탐색을 위해 glob 모듈 임포트
 
 # --- 패키지 루트를 sys.path에 추가하는 로직 ---
+# 현재 파일의 절대 경로
 current_file_path = os.path.abspath(__file__)
+# 'cctv_event_detector' 패키지의 루트 디렉토리를 찾음
 temp_path = os.path.dirname(current_file_path)
 temp_path = os.path.dirname(temp_path)
 temp_path = os.path.dirname(temp_path)
@@ -64,7 +66,7 @@ class SamPinjigSegmenter(InferenceStrategy):
             print(f"Found {len(raw_masks)} raw masks.")
 
             filtered_masks = self._filter_masks(raw_masks, ignore_mask)
-            print(f"Found {len(filtered_masks)} filtered masks after all filters.")
+            print(f"Found {len(filtered_masks)} filtered masks.")
 
             if capture.image_id not in inference_results:
                 inference_results[capture.image_id] = {}
@@ -77,24 +79,22 @@ class SamPinjigSegmenter(InferenceStrategy):
                     image_id=capture.image_id
                 )
 
+            # --- 시각화 부분 주석 처리 ---
+            # visualized_image = self._draw_masks(image_data.copy(), filtered_masks)
+            # cv2.imshow(f"Original - {capture.image_id}", image_data)
+            # cv2.imshow(f"Filtered SAM Segmentation - {capture.image_id}", visualized_image)
+            # cv2.waitKey(0)
+
+        # cv2.destroyAllWindows()
         return inference_results
 
     def _classify_and_save_masks(self, original_image: np.ndarray, masks: List[Dict[str, Any]], image_id: str):
+        """
+        마스크 영역을 자르고, 크기를 조절하고, 분류한 뒤, 결과를 적어 저장합니다.
+        """
         output_dir = os.path.join("classification_results", f"{image_id}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}")
         os.makedirs(output_dir, exist_ok=True)
         print(f"Saving classified crops to: {output_dir}")
-
-        # ★★★ 추가된 기능: 전체 마스크 오버레이 이미지 저장 ★★★
-        if masks: # 마스크가 하나 이상 있을 때만 실행
-            # 모든 필터링된 마스크가 중첩된 이미지를 생성합니다.
-            overlay_image = self._draw_masks(original_image.copy(), masks)
-            
-            # 폴더 내에서 쉽게 찾을 수 있도록 파일명을 지정하여 저장합니다.
-            overlay_filename = "_OVERLAY_RESULT.jpg"
-            overlay_path = os.path.join(output_dir, overlay_filename)
-            cv2.imwrite(overlay_path, overlay_image)
-            print(f"Saved overlay image to: {overlay_path}")
-        # ★★★ 기능 추가 완료 ★★★
 
         for i, mask_ann in enumerate(masks):
             bbox = mask_ann.get('bbox')
@@ -135,16 +135,7 @@ class SamPinjigSegmenter(InferenceStrategy):
                 cv2.putText(annotated_image, text, (20, pos_y), font, font_scale, white_color, thickness, cv2.LINE_AA)
                 pos_y += 40
 
-            top1_class_name = self.cls_model.names[r.probs.top1]
-            base_filename = f"mask_{i:03d}_classified.png"
-            
-            # if top1_class_name == 'pinjig':
-            #     output_filename = f"pinjig_{base_filename}"
-            # else:
-            #     output_filename = base_filename
-
-            output_filename = f"{top1_class_name}_{base_filename}"
-            
+            output_filename = f"mask_{i:03d}_classified.png"
             output_path = os.path.join(output_dir, output_filename)
             cv2.imwrite(output_path, annotated_image)
 
@@ -153,13 +144,11 @@ class SamPinjigSegmenter(InferenceStrategy):
     def _filter_masks(self, masks: List[Dict[str, Any]], ignore_mask: np.ndarray = None, 
                       nesting_threshold: float = 0.9, ignore_iou_threshold: float = 0.8) -> List[Dict[str, Any]]:
         if not masks: return []
-        
         if ignore_mask is not None:
             masks_in_roi = [m for m in masks if np.logical_and(m['segmentation'], ignore_mask).sum() / m['area'] < ignore_iou_threshold]
         else:
             masks_in_roi = masks
         if not masks_in_roi: return []
-
         sorted_masks = sorted(masks_in_roi, key=(lambda x: x['area']), reverse=True)
         final_masks_indices = list(range(len(sorted_masks)))
         for i in range(len(sorted_masks)):
@@ -171,13 +160,7 @@ class SamPinjigSegmenter(InferenceStrategy):
                 intersection = np.logical_and(mask_i_seg, mask_j_seg).sum()
                 if intersection / sorted_masks[j]['area'] > nesting_threshold:
                     final_masks_indices.remove(j)
-        
-        final_masks = [
-            sorted_masks[i] for i in final_masks_indices 
-            if sorted_masks[i]['bbox'][2] >= 100 and sorted_masks[i]['bbox'][3] >= 100
-        ]
-
-        return final_masks
+        return [sorted_masks[i] for i in final_masks_indices]
 
     def _draw_masks(self, image: np.ndarray, masks: List[Dict[str, Any]]) -> np.ndarray:
         if len(masks) == 0: return image
@@ -189,11 +172,18 @@ class SamPinjigSegmenter(InferenceStrategy):
         return cv2.addWeighted(image, 0.5, overlay, 0.5, 0)
 
 if __name__ == "__main__":
+    # --- 실행 전 설정 ---
+    # 1. 처리할 이미지가 있는 디렉토리 경로를 지정하세요.
     data_directory = "/home/ksoeadmin/Projects/PYPJ/L2025022_mipo_operationsystem_uv/data"
+    
+    # 2. SAM 모델 체크포인트 파일의 경로를 지정하세요.
     sam_checkpoint_path = "/home/ksoeadmin/Projects/PYPJ/L2025022_mipo_operationsystem_uv/checkpoints/segmentation/sam_vit_h_4b8939.pth"
     model_type = "vit_h"
+
+    # 3. YOLO Classification 모델 체크포인트 파일의 경로를 지정하세요.
     cls_model_path = "/home/ksoeadmin/Projects/PYPJ/sam/checkpoints/cls/best.pt"
 
+    # --- 모델 로딩 (한 번만 실행) ---
     print("Initializing models...")
     segmenter = SamPinjigSegmenter(
         model_type=model_type, 
@@ -202,6 +192,7 @@ if __name__ == "__main__":
     )
     print("Models loaded successfully. Starting batch processing...")
     
+    # --- 지정된 디렉토리의 모든 JPG 파일에 대해 작업 수행 ---
     image_paths = glob.glob(os.path.join(data_directory, '*.jpg'))
     if not image_paths:
         print(f"No JPG files found in {data_directory}")
@@ -213,6 +204,7 @@ if __name__ == "__main__":
             print(f"Error: Could not load image from {image_path}. Skipping.")
             continue
         
+        # 파일명을 기반으로 고유한 image_id 생성
         image_id = os.path.basename(image_path)
         
         test_images = [
@@ -224,6 +216,7 @@ if __name__ == "__main__":
             )
         ]
         
+        # 분할 및 분류 실행
         results = segmenter.run(test_images, {})
         
         print("\n--- Pipeline Results ---")
