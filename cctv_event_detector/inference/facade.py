@@ -1,7 +1,16 @@
 # cctv_event_detector/inference/facade.py
 from typing import List, Dict, Any
 
-from cctv_event_detector.inference.strategies import InferenceStrategy, MockObjectDetector, MockAssemblyClassifier, SamPinjigSegmenter
+# AI 추론 전략들을 임포트
+from cctv_event_detector.inference.strategies import (
+    InferenceStrategy,
+    YOLOObjectDetector,
+    SAMObjectBoundarySegmenter,
+    MockAssemblyClassifier,
+    # SamPinjigSegmenter,
+    AutomaticSegmenter, # 신규: 자동 분할 클래스
+    MaskClassifier,
+)
 from cctv_event_detector.core.models import CapturedImage # 추가
 
 
@@ -9,9 +18,12 @@ class AIInferenceFacade:
     def __init__(self):
         # AI 모델(전략)들은 한 번만 로드
         self._pipeline: List[InferenceStrategy] = [
-            MockObjectDetector(),
+            YOLOObjectDetector(),
+            SAMObjectBoundarySegmenter(),
             MockAssemblyClassifier(),
-            SamPinjigSegmenter(),
+            # SamPinjigSegmenter(),
+            AutomaticSegmenter(), # 신규: 자동 분할 클래스
+            MaskClassifier(),
         ]
 
     def process_batch(self, captured_images: List[CapturedImage]) -> Dict[str, Any]:

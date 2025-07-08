@@ -18,33 +18,47 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 # -----------------------------------------------
 
+# --- config 파일에서 설정값 불러오기 ---
+from config import (
+    SAM_MODEL_TYPE,
+    SAM_CHECKPOINT_PATH,
+    SAM_YOLO_CLS_MODEL_PATH,
+    SAM_CLASSIFICATION_OUTPUT_DIR
+)
+# -----------------------------------------------
+
 from ultralytics import YOLO
 from segment_anything import sam_model_registry, SamAutomaticMaskGenerator
 from cctv_event_detector.inference.strategies.base import InferenceStrategy
 from cctv_event_detector.core.models import CapturedImage
+
 
 class SamPinjigSegmenter(InferenceStrategy):
     """
     Segment Anything Model (SAM)을 사용하여 이미지 분할을 수행하고,
     분할된 영역을 YOLO 모델로 분류한 뒤 저장하는 전략 클래스입니다.
     """
-    def __init__(self,
-                 model_type: str = "vit_h",
-                 checkpoint: str = "/path/to/your/sam_checkpoint.pth",
-                 cls_model_path: str = "/path/to/your/yolo_cls_model.pt"):
-        
-        print("Initializing SAM model...")
+    def __init__(self):
+        """
+        config 파일로부터 모델 경로 및 기타 설정을 로드하여 모델을 초기화합니다.
+        """
+        print("Initializing models from config...")
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         print(f"Using device: {self.device}")
-        
-        sam = sam_model_registry[model_type](checkpoint=checkpoint)
+
+        # 설정 파일(config.py)에서 SAM 모델 경로 및 타입 로드
+        sam = sam_model_registry[SAM_MODEL_TYPE](checkpoint=str(SAM_CHECKPOINT_PATH))
         sam.to(device=self.device)
         self.mask_generator = SamAutomaticMaskGenerator(model=sam)
-        print("SAM model loaded successfully.")
+        print(f"SAM model ('{SAM_MODEL_TYPE}') loaded successfully from: {SAM_CHECKPOINT_PATH}")
 
-        print("Initializing YOLO classification model...")
-        self.cls_model = YOLO(cls_model_path)
-        print("YOLO classification model loaded successfully.")
+        # 설정 파일(config.py)에서 YOLO 분류 모델 경로 로드
+        self.cls_model = YOLO(SAM_YOLO_CLS_MODEL_PATH)
+        print(f"YOLO classification model loaded successfully from: {SAM_YOLO_CLS_MODEL_PATH}")
+
+        # 설정 파일(config.py)에서 출력 디렉토리 로드
+        self.output_dir = SAM_CLASSIFICATION_OUTPUT_DIR
+        print(f"Output directory set to: {self.output_dir}")
 
     def run(self, captured_images: List[CapturedImage], inference_results: Dict[str, Any]) -> Dict[str, Any]:
         print("Running SAM Pinjig Segmenter...")
@@ -52,10 +66,10 @@ class SamPinjigSegmenter(InferenceStrategy):
         for capture in captured_images:
             image_data = capture.image_data
             h, w, _ = image_data.shape
-            
+
             ignore_mask = np.zeros((h, w), dtype=bool)
             ignore_mask[:int(h * 0.30), :] = True
-            
+
             rgb_image = cv2.cvtColor(image_data, cv2.COLOR_BGR2RGB)
             rgb_image = cv2.GaussianBlur(rgb_image, (25, 25), 0)
 
@@ -70,6 +84,7 @@ class SamPinjigSegmenter(InferenceStrategy):
                 inference_results[capture.image_id] = {}
             inference_results[capture.image_id]['pinjig_masks'] = filtered_masks
             
+            # (선택) 인식된 마스크 저장
             if filtered_masks:
                 self._classify_and_save_masks(
                     original_image=image_data,
@@ -80,22 +95,21 @@ class SamPinjigSegmenter(InferenceStrategy):
         return inference_results
 
     def _classify_and_save_masks(self, original_image: np.ndarray, masks: List[Dict[str, Any]], image_id: str):
-        output_dir = os.path.join("classification_results", f"{image_id}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}")
-        os.makedirs(output_dir, exist_ok=True)
-        print(f"Saving classified crops to: {output_dir}")
+        # config에서 불러온 기본 출력 디렉토리 하위에 타임스탬프 폴더 생성
+        # timed_output_dir = self.output_dir / f"{image_id}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        timed_output_dir = self.output_dir / image_id
+        timed_output_dir.mkdir(parents=True, exist_ok=True)
+        print(f"Saving classified crops to: {timed_output_dir}")
 
-        # ★★★ 추가된 기능: 전체 마스크 오버레이 이미지 저장 ★★★
-        if masks: # 마스크가 하나 이상 있을 때만 실행
-            # 모든 필터링된 마스크가 중첩된 이미지를 생성합니다.
+        # ★★★ 전체 마스크 오버레이 이미지 저장 ★★★
+        if masks:
             overlay_image = self._draw_masks(original_image.copy(), masks)
-            
-            # 폴더 내에서 쉽게 찾을 수 있도록 파일명을 지정하여 저장합니다.
             overlay_filename = "_OVERLAY_RESULT.jpg"
-            overlay_path = os.path.join(output_dir, overlay_filename)
-            cv2.imwrite(overlay_path, overlay_image)
+            overlay_path = timed_output_dir / overlay_filename
+            cv2.imwrite(str(overlay_path), overlay_image)
             print(f"Saved overlay image to: {overlay_path}")
-        # ★★★ 기능 추가 완료 ★★★
 
+        # ★★★ 마스크별 크롭 이미지 저장 ★★★
         for i, mask_ann in enumerate(masks):
             bbox = mask_ann.get('bbox')
             if not bbox:
@@ -137,16 +151,10 @@ class SamPinjigSegmenter(InferenceStrategy):
 
             top1_class_name = self.cls_model.names[r.probs.top1]
             base_filename = f"mask_{i:03d}_classified.png"
-            
-            # if top1_class_name == 'pinjig':
-            #     output_filename = f"pinjig_{base_filename}"
-            # else:
-            #     output_filename = base_filename
-
             output_filename = f"{top1_class_name}_{base_filename}"
             
-            output_path = os.path.join(output_dir, output_filename)
-            cv2.imwrite(output_path, annotated_image)
+            output_path = timed_output_dir / output_filename
+            cv2.imwrite(str(output_path), annotated_image)
 
         print(f"Finished processing and saving {len(masks)} cropped images.")
 
@@ -189,17 +197,13 @@ class SamPinjigSegmenter(InferenceStrategy):
         return cv2.addWeighted(image, 0.5, overlay, 0.5, 0)
 
 if __name__ == "__main__":
+    # main에서 직접 실행할 때만 사용되는 데이터 디렉토리 경로는 여기에 유지합니다.
     data_directory = "/home/ksoeadmin/Projects/PYPJ/L2025022_mipo_operationsystem_uv/data"
-    sam_checkpoint_path = "/home/ksoeadmin/Projects/PYPJ/L2025022_mipo_operationsystem_uv/checkpoints/segmentation/sam_vit_h_4b8939.pth"
-    model_type = "vit_h"
-    cls_model_path = "/home/ksoeadmin/Projects/PYPJ/sam/checkpoints/cls/best.pt"
 
+    # 이제 SamPinjigSegmenter는 config 파일에서 모든 설정을 가져오므로,
+    # 클래스를 생성할 때 인자를 전달할 필요가 없습니다.
     print("Initializing models...")
-    segmenter = SamPinjigSegmenter(
-        model_type=model_type, 
-        checkpoint=sam_checkpoint_path,
-        cls_model_path=cls_model_path
-    )
+    segmenter = SamPinjigSegmenter()
     print("Models loaded successfully. Starting batch processing...")
     
     image_paths = glob.glob(os.path.join(data_directory, '*.jpg'))
