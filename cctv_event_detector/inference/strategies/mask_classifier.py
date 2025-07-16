@@ -158,8 +158,10 @@ class MaskClassifier(InferenceStrategy):
             # --- 그리기 ---
             # 1. 연결선 그리기 (보정된 위치 기반)
             line_start_point = (final_text_pos[0] + w_text // 2, final_rect_pos2[1] if final_text_pos[1] > y else final_rect_pos1[1])
-            cv2.line(overlay_image, line_start_point, (cX, cY), (0, 0, 0), 4) # 테두리
-            cv2.line(overlay_image, line_start_point, (cX, cY), (255, 255, 255), 2) # 중심선
+            # cv2.line(overlay_image, line_start_point, (cX, cY), (0, 0, 0), 4) # 테두리
+            # cv2.line(overlay_image, line_start_point, (cX, cY), (255, 255, 255), 2) # 중심선
+            cv2.line(overlay_image, line_start_point, (cX, cY), (255, 255, 255), 5) # 테두리
+            cv2.line(overlay_image, line_start_point, (cX, cY), color, 3) # 중심선
 
             # 2. 배경 사각형 그리기 (보정된 위치 기반)
             luminance = 0.299 * color[2] + 0.587 * color[1] + 0.114 * color[0]

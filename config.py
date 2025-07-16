@@ -43,26 +43,33 @@ SAM_BOUNDARY_OUTPUT_DIR = BASE_DIR / "output"
 
 # 카메라 정보 리스트
 CAMERA_INFO = [
-    {"bay": "3bay_north", "name": "C02", "host": "10.150.160.183", "port": 80, "username": "admin", "password": "Hmd!!2503700"},
-    {"bay": "3bay_north", "name": "C04", "host": "10.150.160.184", "port": 80, "username": "admin", "password": "Hmd!!2503700"},
-    {"bay": "3bay_north", "name": "C06", "host": "10.150.160.193", "port": 80, "username": "admin", "password": "Hmd!!2503700"},
-    {"bay": "3bay_north", "name": "C07", "host": "10.150.160.194", "port": 80, "username": "admin", "password": "Hmd!!2503700"},
-    {"bay": "3bay_north", "name": "C09", "host": "10.150.160.209", "port": 80, "username": "admin", "password": "Hmd!!2503700"},
-    {"bay": "3bay_north", "name": "C11", "host": "10.150.160.211", "port": 80, "username": "admin", "password": "Hmd!!2503700"},
-    {"bay": "3bay_north", "name": "D02", "host": "10.150.160.221", "port": 80, "username": "admin", "password": "Hmd!!2503700"},
-    {"bay": "3bay_north", "name": "D04", "host": "10.150.160.222", "port": 80, "username": "admin", "password": "Hmd!!2503700"},
-    {"bay": "3bay_north", "name": "D06", "host": "10.150.160.224", "port": 80, "username": "admin", "password": "Hmd!!2503700"},
-    {"bay": "3bay_north", "name": "D07", "host": "10.150.160.225", "port": 80, "username": "admin", "password": "Hmd!!2503700"},
-    {"bay": "3bay_north", "name": "D09", "host": "10.150.160.226", "port": 80, "username": "admin", "password": "Hmd!!2503700"},
-    {"bay": "3bay_north", "name": "D11", "host": "10.150.160.227", "port": 80, "username": "admin", "password": "Hmd!!2503700"},
+    {"bay": "3bay_north", "name": "C_2", "host": "10.150.160.183", "port": 80, "username": "admin", "password": "Hmd!!2503700"},
+    {"bay": "3bay_north", "name": "C_4", "host": "10.150.160.184", "port": 80, "username": "admin", "password": "Hmd!!2503700"},
+    {"bay": "3bay_north", "name": "C_6", "host": "10.150.160.193", "port": 80, "username": "admin", "password": "Hmd!!2503700"},
+    {"bay": "3bay_north", "name": "C_7", "host": "10.150.160.194", "port": 80, "username": "admin", "password": "Hmd!!2503700"},
+    {"bay": "3bay_north", "name": "C_9", "host": "10.150.160.209", "port": 80, "username": "admin", "password": "Hmd!!2503700"},
+    {"bay": "3bay_north", "name": "C_11", "host": "10.150.160.211", "port": 80, "username": "admin", "password": "Hmd!!2503700"},
+    {"bay": "3bay_north", "name": "D_2", "host": "10.150.160.221", "port": 80, "username": "admin", "password": "Hmd!!2503700"},
+    {"bay": "3bay_north", "name": "D_4", "host": "10.150.160.222", "port": 80, "username": "admin", "password": "Hmd!!2503700"},
+    {"bay": "3bay_north", "name": "D_6", "host": "10.150.160.224", "port": 80, "username": "admin", "password": "Hmd!!2503700"},
+    {"bay": "3bay_north", "name": "D_7", "host": "10.150.160.225", "port": 80, "username": "admin", "password": "Hmd!!2503700"},
+    {"bay": "3bay_north", "name": "D_9", "host": "10.150.160.226", "port": 80, "username": "admin", "password": "Hmd!!2503700"},
+    {"bay": "3bay_north", "name": "D_11", "host": "10.150.160.227", "port": 80, "username": "admin", "password": "Hmd!!2503700"},
     ]
 
 NUM_LATEST_IMAGES = 12
 
-# Redis 서버 정보
+
+# --- Redis Configuration ---
+# Redis 서버의 호스트 주소입니다. Docker 또는 로컬에서 실행 시 'localhost'를 사용합니다.
 REDIS_HOST = "localhost"
+
+# Redis 서버의 포트 번호입니다. 기본값은 6379입니다.
 REDIS_PORT = 6379
+
+# 사용할 Redis 데이터베이스 번호입니다. 0부터 15까지 사용할 수 있습니다.
 REDIS_DB = 0
 
-# Redis Producer와 Consumer가 통신할 Redis 채널
+
+###?? # Redis Producer와 Consumer가 통신할 Redis 채널
 REDIS_CHANNEL = "cctv_state_updates"
