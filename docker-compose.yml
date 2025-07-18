@@ -1,0 +1,39 @@
+services:
+  # redis 서비스에 networks 항목을 꼭 추가해주세요.
+  redis:
+    image: redis:latest
+    restart: always
+    container_name: my-redis-compose
+    command: # 최대 메모리를 10기가로 제한
+      - "redis-server"
+      - "--maxmemory 10gb"          # 최대 메모리를 10기가로 제한
+      - "--maxmemory-policy allkeys-lru" # 메모리가 꽉 차면, 가장 오랫동안 사용되지 않은 키(LRU)부터 삭제
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - redis-network
+
+  # redis-insight 서비스를 새로 추가합니다.
+  redis-insight:
+    image: redis/redisinsight:latest
+    restart: always
+    container_name: my-redis-insight
+    ports:
+      - "5540:5540"
+    volumes:
+      - redis-insight-data:/db
+    networks:
+      - redis-network
+    depends_on:
+      - redis
+
+# 파일 하단에 networks와 volumes 정의를 추가합니다.
+networks:
+  redis-network:
+    driver: bridge
+
+volumes:
+  redis-data:
+  redis-insight-data:
