@@ -6,8 +6,7 @@ from typing import Dict, Any, List
 
 from .base import InferenceStrategy
 from cctv_event_detector.core.models import CapturedImage
-# config 파일에서 TOP_CUTOFF_PERCENT, BOTTOM_CUTOFF_PERCENT 임포트 추가
-from config import SAM_MODEL_TYPE, SAM_CHECKPOINT_PATH, TOP_CUTOFF_PERCENT, BOTTOM_CUTOFF_PERCENT
+from config import SAM_MODEL_TYPE, SAM_CHECKPOINT_PATH
 from segment_anything import sam_model_registry, SamAutomaticMaskGenerator
 
 class AutomaticSegmenter(InferenceStrategy):
@@ -25,34 +24,6 @@ class AutomaticSegmenter(InferenceStrategy):
         self.mask_generator = SamAutomaticMaskGenerator(model=sam)
         print(f"✅ Automatic SAM model ('{SAM_MODEL_TYPE}') loaded successfully.")
 
-    def _apply_top_bottom_gray_padding(self, image_rgb: np.ndarray) -> np.ndarray:
-        """
-        이미지의 상단과 하단을 지정된 비율만큼 회색으로 채웁니다.
-        설정값은 config 파일에서 가져옵니다.
-
-        Args:
-            image_rgb (np.ndarray): 원본 RGB 이미지 배열.
-
-        Returns:
-            np.ndarray: 상단과 하단이 회색으로 채워진 수정된 이미지 배열.
-        """
-        # 원본 이미지를 보호하기 위해 복사본 사용
-        padded_image = image_rgb.copy()
-        height, _ = padded_image.shape[:2]
-
-        # 비율을 실제 y좌표로 변환
-        top_end_y = int(height * (TOP_CUTOFF_PERCENT / 100.0))
-        bottom_start_y = int(height * (BOTTOM_CUTOFF_PERCENT / 100.0))
-
-        # 회색 컬러 값 (RGB: 114, 114, 114)
-        gray_color = [114, 114, 114]
-
-        # 상단과 하단 영역을 회색으로 채우기
-        padded_image[0:top_end_y, :] = gray_color
-        padded_image[bottom_start_y:height, :] = gray_color
-
-        return padded_image
-
     def run(self, captured_images: List[CapturedImage], inference_results: Dict[str, Any]) -> Dict[str, Any]:
         print("Running Automatic Segmenter...")
 
@@ -61,18 +32,15 @@ class AutomaticSegmenter(InferenceStrategy):
             image_data = capture.image_data
             h, w, _ = image_data.shape
 
-            # 1. BGR 이미지를 RGB로 변환
+
+            # 이미지 전처리
             rgb_image = cv2.cvtColor(image_data, cv2.COLOR_BGR2RGB)
+            rgb_image = cv2.GaussianBlur(rgb_image, (25, 25), 0)
+            
+            # "여기에 CUTOFF 함수를 추가
 
-            # 2. CUTOFF 함수 적용 (지그류 검출을 위해 이미지 상단과 하단을 회색으로 채우기)
-            padded_image = self._apply_top_bottom_gray_padding(rgb_image)
-
-            # 3. 이미지 전처리 (가우시안 블러)
-            processed_image = cv2.GaussianBlur(padded_image, (25, 25), 0)
-
-            # 4. 마스크 생성
             print(f"Generating masks for {image_id}...")
-            raw_masks = self.mask_generator.generate(processed_image)
+            raw_masks = self.mask_generator.generate(rgb_image)
             
             # 특정 영역 무시를 위한 마스크 생성
             ignore_mask = np.zeros((h, w), dtype=bool)

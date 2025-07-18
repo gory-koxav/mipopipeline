@@ -11,7 +11,7 @@ import glob
 # ==============================================================================
 
 # 기본 경로
-HOME_PATH = '/home/ksoeadmin/Projects/PYPJ/L2025022_mipo_operationsystem_uv/data/mipo/timelapse_250224-250321'
+HOME_PATH = '/home/ksoeadmin/Projects/PYPJ/L2025022_mipo_operationsystem_uv/data/mipo/timelapse_250224-250321_pinjig'
 PROJECT_BASE_DIR = '/home/ksoeadmin/Projects/PYPJ/L2025022_mipo_operationsystem_uv'
 
 # SAM (Segment Anything Model) 모델 설정
@@ -20,7 +20,7 @@ SAM_MODEL_TYPE = "vit_h"
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # 처리할 카메라 폴더 이름 목록
-CAMERA_NAMES = ['C_2', 'C_4', 'C_6', 'C_7', 'C_9', 'C_11', 'D_2', 'D_4', 'D_6', 'D_7', 'D_9', 'D_11']
+CAMERA_NAMES = ['C_7', 'C_2', 'C_4', 'C_6', 'C_9', 'C_11', 'D_2', 'D_4', 'D_6', 'D_7', 'D_9', 'D_11']
 
 
 # ==============================================================================
@@ -32,7 +32,8 @@ def preprocess_image(image_rgb: np.ndarray) -> np.ndarray:
     SAM 모델에 이미지를 입력하기 전에 전처리를 수행합니다.
     Bilateral 필터를 적용하여 노이즈를 줄이면서 객체의 경계선은 보존합니다.
     """
-    return cv2.bilateralFilter(image_rgb, d=9, sigmaColor=75, sigmaSpace=75)
+    # return cv2.bilateralFilter(image_rgb, d=9, sigmaColor=75, sigmaSpace=75)
+    return cv2.GaussianBlur(image_rgb, (25, 25), 0)
 
 def filter_masks(masks: list, image_shape: tuple) -> list:
     """
@@ -140,15 +141,7 @@ def main():
         sam = sam_model_registry[SAM_MODEL_TYPE](checkpoint=SAM_CHECKPOINT_PATH)
         sam.to(device=DEVICE)
         
-        mask_generator = SamAutomaticMaskGenerator(
-            model=sam,
-            points_per_side=16,
-            pred_iou_thresh=0.92,
-            stability_score_thresh=0.92,
-            crop_n_layers=1,
-            crop_n_points_downscale_factor=2,
-            min_mask_region_area=100
-        )
+        mask_generator = SamAutomaticMaskGenerator(model=sam)
         print("✅ SAM 모델 로드 완료.")
     except Exception as e:
         print(f"[오류] SAM 모델 로드에 실패했습니다: {e}")
@@ -182,6 +175,38 @@ def main():
                 if image_bgr is None:
                     continue
                 image_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
+
+                # --- 설정값 (여기서 원하는 비율을 쉽게 변경하세요) ---
+                # 상단에서부터 자를 영역의 비율 (%)
+                TOP_CUTOFF_PERCENT = 20
+                # 상단에서부터 회색으로 칠할 하단 영역이 시작될 지점의 비율 (%)
+                BOTTOM_CUTOFF_PERCENT = 75
+
+                # 이미지가 제대로 로드되었는지 확인
+                if image_rgb is None:
+                    print(f"'{image_path}' 파일을 찾을 수 없거나 열 수 없습니다.")
+                else:
+                    # 이미지 높이 가져오기
+                    height, width = image_rgb.shape[:2]
+
+                    # 비율을 실제 y좌표로 변환
+                    top_end_y = int(height * (TOP_CUTOFF_PERCENT / 100.0))
+                    bottom_start_y = int(height * (BOTTOM_CUTOFF_PERCENT / 100.0))
+
+                    # 회색 컬러 값 (BGR 순서)
+                    gray_color = [114, 114, 114]
+
+                    # 1. 원본 이미지의 상단 영역을 직접 회색으로 칠하기
+                    image_rgb[0:top_end_y, :] = gray_color
+
+                    # 2. 원본 이미지의 하단 영역을 직접 회색으로 칠하기
+                    image_rgb[bottom_start_y:height, :] = gray_color
+                    # cv2.imshow('Modified Original Image', image_rgb)
+                    # # 키 입력 대기
+                    # cv2.waitKey(0)
+
+                    # # 모든 창 닫기
+                    # cv2.destroyAllWindows()
                 
                 # 전처리 -> 마스크 생성 -> 수정된 로직으로 필터링
                 preprocessed_image = preprocess_image(image_rgb)

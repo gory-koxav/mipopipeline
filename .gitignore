@@ -12,5 +12,4 @@ wheels/
 data
 output
 checkpoints
-config.py
 **_bak[0-9]*.py

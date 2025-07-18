@@ -1,6 +1,6 @@
 # cctv_event_detector/core/models.py
 from dataclasses import dataclass, field
-from typing import List, Dict, Any, Literal, Optional
+from typing import List, Dict, Any, Literal, Optional, Tuple
 import numpy as np
 import datetime
 
@@ -41,3 +41,29 @@ class CapturedImage:
     # NumPy 배열은 기본적으로 비교가 복잡하므로, eq=False로 설정
     def __post_init__(self):
         self.__repr__ = lambda: f"CapturedImage(image_id={self.image_id})"
+
+# ==============================================================================
+#                      상황 인식용 데이터 모델 (신규 추가)
+# ==============================================================================
+
+@dataclass
+class FrameData:
+    """Redis에서 수집 및 파싱한 단일 카메라 프레임의 모든 정보를 담는 DTO"""
+    image_id: str
+    camera_name: str
+    image_path: str
+    captured_at: str
+    image_shape: Tuple[int, int]
+    detections: List[Dict[str, Any]] = field(default_factory=list)
+    boundary_masks: List[np.ndarray] = field(default_factory=list) # 키가 아닌 실제 마스크 배열
+
+@dataclass
+class ProjectedData:
+    """단일 카메라의 데이터를 절대 좌표계에 투영한 결과물"""
+    camera_name: str
+    warped_image: Optional[np.ndarray]
+    warped_masks: List[np.ndarray]
+    projected_boxes: List[np.ndarray]
+    extent: List[float]  # Matplotlib.imshow의 extent [left, right, bottom, top]
+    clip_polygon: np.ndarray # 이미지 및 마스크 클리핑 경로
+    is_valid: bool = True
