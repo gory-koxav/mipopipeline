@@ -93,22 +93,8 @@ class Projector:
             print(f"경고: {frame_data.camera_name}의 Homography 행렬 계산에 실패했습니다.")
             return ProjectedData(camera_name=frame_data.camera_name, is_valid=False)
 
-        # --- 핵심 수정 사항 ---
-        # warped_image가 180도 회전되었으므로, extent(프레임)도 회전된 이미지 기준으로 계산해야 함
-        # dst_corners = [proj(0,0), proj(w,0), proj(w,h), proj(0,h)]
-        # Flipped(0,0) -> Orig(w,h) -> proj(w,h) -> dst_corners[2]
-        # Flipped(w,0) -> Orig(0,h) -> proj(0,h) -> dst_corners[3]
-        # Flipped(w,h) -> Orig(0,0) -> proj(0,0) -> dst_corners[0]
-        # Flipped(0,h) -> Orig(w,0) -> proj(w,0) -> dst_corners[1]
-        dst_corners_for_flipped = np.array([
-            dst_corners[2], dst_corners[3], dst_corners[0], dst_corners[1]
-        ])
-        
-        # 회전된 이미지에 맞는 새로운 extent(프레임) 계산
-        min_x = np.min(dst_corners_for_flipped[:, 0])
-        max_x = np.max(dst_corners_for_flipped[:, 0])
-        min_y = np.min(dst_corners_for_flipped[:, 1])
-        max_y = np.max(dst_corners_for_flipped[:, 1])
+        min_x, max_x = np.min(dst_corners[:, 0]), np.max(dst_corners[:, 0])
+        min_y, max_y = np.min(dst_corners[:, 1]), np.max(dst_corners[:, 1])
         
         warp_width = int(np.ceil((max_x - min_x) * self.pixels_per_meter))
         warp_height = int(np.ceil((max_y - min_y) * self.pixels_per_meter))
@@ -135,29 +121,44 @@ class Projector:
             warped_mask = cv2.warpPerspective(mask_flipped, H_warp, (warp_width, warp_height), flags=cv2.INTER_NEAREST)
             warped_masks.append(warped_mask)
 
-        # 5. 객체 경계 상자 투영 (지난번 수정과 동일하게 유지)
+        # 5. 객체 경계 상자 투영 (수정된 부분)
         projected_boxes = []
         for det in frame_data.detections:
             class_name = det.get('class_name')
             if self.target_classes and class_name not in self.target_classes:
                 continue
             
+            # bbox_xywh가 이미 좌상단 기준 [x_min, y_min, width, height] 형식이라고 가정
             x_min, y_min, w_box, h_box = det['bbox_xywh']
             x_max, y_max = x_min + w_box, y_min + h_box
             
-            box_corners_pix = np.array([
+            # 원본 픽셀 좌표 (박스의 네 꼭짓점)
+            box_corners_orig = np.array([
                 [x_min, y_min], [x_max, y_min],
                 [x_max, y_max], [x_min, y_max]
             ], dtype=np.float32)
-
-            flipped_box_corners_pix = np.array([
-                [w_img - 1 - u, h_img - 1 - v] for u, v in box_corners_pix
-            ], dtype=np.float32)
             
-            transformed_corners = cv2.perspectiveTransform(flipped_box_corners_pix.reshape(1, -1, 2), H_mat)
-
-            if transformed_corners is not None:
-                projected_boxes.append(transformed_corners.reshape(4, 2))
+            # 이미지와 동일하게 플립 적용 (상하좌우 뒤집기)
+            box_corners_flipped = []
+            for u, v in box_corners_orig:
+                flipped_u = w_img - 1 - u
+                flipped_v = h_img - 1 - v
+                box_corners_flipped.append([flipped_u, flipped_v])
+            
+            box_corners_flipped = np.array(box_corners_flipped, dtype=np.float32)
+            
+            # Homography 변환을 사용하여 박스 좌표 변환
+            # 이미지와 동일한 H_warp를 사용
+            box_corners_transformed = cv2.perspectiveTransform(
+                box_corners_flipped.reshape(-1, 1, 2), H_warp
+            ).reshape(-1, 2)
+            
+            # 픽셀 좌표를 월드 좌표로 변환 (T_matrix의 역변환)
+            box_corners_world = box_corners_transformed / self.pixels_per_meter
+            box_corners_world[:, 0] += min_x
+            box_corners_world[:, 1] += min_y
+            
+            projected_boxes.append(box_corners_world)
 
         return ProjectedData(
             camera_name=frame_data.camera_name,
@@ -166,5 +167,5 @@ class Projector:
             warped_masks=warped_masks,
             projected_boxes=projected_boxes,
             extent=[min_x, max_x, max_y, min_y],
-            clip_polygon=dst_corners # 클리핑 영역은 원본 이미지의 가시 영역이므로 dst_corners 유지
+            clip_polygon=dst_corners
         )

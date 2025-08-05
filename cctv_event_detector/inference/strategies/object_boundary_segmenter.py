@@ -72,8 +72,13 @@ class SAMObjectBoundarySegmenter(InferenceStrategy):
                 should_process = not self.target_classes or detection['class_name'] in self.target_classes
                 
                 if should_process:
-                    x, y, w, h = detection['bbox_xywh']
-                    input_box = np.array([x - w/2, y - h/2, x + w/2, y + h/2])
+                    # --- 🔴 START: 좌표 포맷 수정 ---
+                    # object_detector는 [x_min, y_min, width, height] 포맷을 사용합니다.
+                    x_min, y_min, w, h = detection['bbox_xywh']
+                    
+                    # SAM은 [x1, y1, x2, y2] 즉 (좌상단, 우하단) 포맷을 요구합니다.
+                    input_box = np.array([x_min, y_min, x_min + w, y_min + h])
+                    # --- 🔴 END: 좌표 포맷 수정 ---
 
                     masks, scores, _ = self.predictor.predict(
                         box=input_box,
@@ -90,7 +95,6 @@ class SAMObjectBoundarySegmenter(InferenceStrategy):
                     self._draw_sam_mask_on_image(vis_image, mask)
 
             if boundary_masks:
-                # output_path = self.output_dir / image_id / f"{image_id}_boundaries.jpg"
                 output_dir_path = self.output_dir / image_id
                 output_dir_path.mkdir(parents=True, exist_ok=True)
                 output_path = output_dir_path / f"{image_id}_boundaries.jpg"
@@ -107,22 +111,25 @@ class SAMObjectBoundarySegmenter(InferenceStrategy):
         """
         이미지에 YOLO 바운딩 박스와 클래스 레이블을 그립니다.
         """
-        x, y, w, h = detection['bbox_xywh']
+        # --- 🔴 START: 좌표 포맷 수정 ---
+        # detection['bbox_xywh']는 [x_min, y_min, width, height] 포맷입니다.
+        x_min, y_min, w, h = map(int, detection['bbox_xywh'])
         class_name = detection['class_name']
         
         # BBox 좌표 계산
-        x1, y1 = int(x - w / 2), int(y - h / 2)
-        x2, y2 = int(x + w / 2), int(y + h / 2)
+        x1, y1 = x_min, y_min
+        x2, y2 = x_min + w, y_min + h
+        # --- 🔴 END: 좌표 포맷 수정 ---
         
         # BBox 그리기 (초록색)
         cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 2)
         
-        # 클래스명 및 신뢰도 텍스트 그리기
+        # 클래스명 텍스트 그리기
         label = f"{class_name}"
-        (w, h), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)
+        (label_w, label_h), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)
         
         # 텍스트 배경 및 텍스트 그리기
-        cv2.rectangle(image, (x1, y1 - 20), (x1 + w, y1), (0, 255, 0), -1)
+        cv2.rectangle(image, (x1, y1 - 20), (x1 + label_w, y1), (0, 255, 0), -1)
         cv2.putText(image, label, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2)
 
     def _draw_sam_mask_on_image(self, image: np.ndarray, mask: np.ndarray):

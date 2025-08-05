@@ -70,12 +70,21 @@ class YOLOObjectDetector(InferenceStrategy):
             detected_objects = []
 
             for box in result.boxes:
-                bbox_xywh = [round(coord) for coord in box.xywh[0].tolist()]
+                # 🔴 중요: YOLO는 중심점 기준 좌표를 반환하므로 좌상단 기준으로 변환
+                center_x, center_y, width, height = box.xywh[0].tolist()
+                
+                # 좌상단 기준 좌표로 변환
+                x_min = center_x - width / 2
+                y_min = center_y - height / 2
+                
+                # 반올림하여 정수로 변환
+                bbox_xywh = [round(x_min), round(y_min), round(width), round(height)]
+                
                 detected_objects.append({
                     "class_id": int(box.cls[0]),
                     "class_name": self.model.names[int(box.cls[0])],
                     "confidence": float(box.conf[0]),
-                    "bbox_xywh": bbox_xywh
+                    "bbox_xywh": bbox_xywh  # 이제 [x_min, y_min, width, height] 형식
                 })
             
             inference_results[image_id]["detections"] = detected_objects

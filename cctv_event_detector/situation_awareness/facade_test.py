@@ -1,4 +1,4 @@
-# cctv_event_detector/situation_awareness/facade.py
+# cctv_event_detector/situation_awareness/facade_test.py
 
 import redis
 import time
@@ -8,6 +8,7 @@ from config import REDIS_HOST, REDIS_PORT, REDIS_DB, PROJECTION_TARGET_CLASSES
 from .data_aggregator import DataAggregator
 from .projector import Projector
 from .visualizer import Visualizer
+from .raw_visualizer import RawDataVisualizer  # 새로 추가
 
 class SituationAwarenessFacade:
     """
@@ -54,6 +55,11 @@ class SituationAwarenessFacade:
         if not all_frames_data:
             print(f"데이터를 찾을 수 없습니다. Batch ID '{batch_id}'에 해당하는 데이터가 Redis에 있는지 확인해주세요.")
             return
+
+        # 🆕 1-1. 원본 데이터 시각화 (flip 및 좌표 변환 없이)
+        print("\n📸 원본 데이터 시각화를 수행합니다...")
+        raw_visualizer = RawDataVisualizer(batch_id)
+        raw_visualizer.visualize_all_frames(all_frames_data)
 
         # 2. 각 카메라 데이터에 대해 사영 변환 수행
         projected_results = []
