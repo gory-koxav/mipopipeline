@@ -4,7 +4,8 @@ import redis
 import json
 import time
 
-from config import REDIS_HOST, REDIS_PORT, REDIS_DB, REDIS_IMAGE_CHANNEL
+# ✅ 요구사항: config에서 시각화 대상 클래스 목록을 가져옵니다.
+from config import REDIS_HOST, REDIS_PORT, REDIS_DB, REDIS_IMAGE_CHANNEL, PROJECTION_TARGET_CLASSES
 from .data_aggregator import DataAggregator
 from .projector import Projector
 from .visualizer import Visualizer
@@ -27,7 +28,9 @@ class SituationAwarenessFacade:
             
         self.pubsub = self.redis_client.pubsub()
         self.aggregator = DataAggregator(self.redis_client)
-        self.projector = Projector()
+        
+        # ✅ 요구사항: Projector 생성 시 시각화 대상 클래스 목록을 전달합니다.
+        self.projector = Projector(target_classes=PROJECTION_TARGET_CLASSES)
 
     def _process_batch(self, batch_id: str):
         """단일 배치 ID에 대한 전체 처리 로직을 수행합니다."""

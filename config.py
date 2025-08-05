@@ -155,3 +155,5 @@ VISUALIZATION_CONFIG = {
     "box_color": 'magenta',
     "box_linewidth": 1.5
 }
+
+PROJECTION_TARGET_CLASSES = ["block", "panel"]

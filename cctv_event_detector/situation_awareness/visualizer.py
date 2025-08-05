@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Polygon
 import numpy as np
 import cv2
-from typing import List
+from typing import List, Dict, Any
 
 from cctv_event_detector.core.models import ProjectedData
 from config import (
@@ -51,9 +51,56 @@ class Visualizer:
 
     def draw(self, projected_data_list: List[ProjectedData]):
         """모든 카메라의 투영 결과를 캔버스에 그립니다."""
+        
+        # --- 색상 변경 로직 시작 ---
+        
+        # 각 데이터 소스에 고유한 색상을 할당하기 위한 설정
+        # 다양한 색상 팔레트 (RGB 튜플, 0-255)
+        color_palette = [
+            (230, 25, 75), (60, 180, 75), (255, 225, 25), (0, 130, 200),
+            (245, 130, 48), (145, 30, 180), (70, 240, 240), (240, 50, 230),
+            (210, 245, 60), (250, 190, 212), (0, 128, 128), (220, 190, 255)
+        ]
+        # Matplotlib의 `edgecolor`에서 사용하기 위해 0-1 범위로 정규화된 색상
+        normalized_palette = [(r/255, g/255, b/255) for r, g, b in color_palette]
+        
+        color_map: Dict[Any, Dict[str, Any]] = {}
+        
+        # ProjectedData 객체에 cctv_id와 같은 고유 식별자가 있다고 가정합니다.
+        # 이 식별자를 기준으로 고유한 데이터 소스를 찾습니다.
+        unique_ids = []
+        for data in projected_data_list:
+            # data 객체에 'cctv_id' 속성이 있다고 가정합니다.
+            unique_id = getattr(data, 'cctv_id', id(data))
+            if unique_id not in unique_ids:
+                unique_ids.append(unique_id)
+
+        # 고유 식별자별로 색상을 매핑합니다.
+        for i, uid in enumerate(unique_ids):
+            color_index = i % len(color_palette)
+            color_map[uid] = {
+                'mask_color': color_palette[color_index],
+                'box_color': normalized_palette[color_index]
+            }
+        
+        # --- 색상 변경 로직 끝 ---
+
         for data in projected_data_list:
             if not data.is_valid:
                 continue
+            
+            # --- 할당된 색상 가져오기 ---
+            # data의 고유 식별자를 기준으로 색상을 가져옵니다.
+            unique_id = getattr(data, 'cctv_id', id(data))
+            
+            if unique_id in color_map:
+                mask_color = color_map[unique_id]['mask_color']
+                box_color = color_map[unique_id]['box_color']
+            else:
+                # 만약의 경우를 대비한 기본값 설정
+                mask_color = VISUALIZATION_CONFIG['mask_color']
+                box_color = VISUALIZATION_CONFIG['box_color']
+            # --- 색상 가져오기 끝 ---
 
             # 클리핑을 위한 폴리곤 생성
             clip_polygon = Polygon(data.clip_polygon, closed=True, facecolor='none', edgecolor='none')
@@ -75,9 +122,9 @@ class Visualizer:
                 for mask in data.warped_masks:
                     # 마스크를 RGBA 이미지로 변환
                     mask_rgba = np.zeros((*mask.shape, 4), dtype=np.uint8)
-                    color = VISUALIZATION_CONFIG['mask_color']
                     alpha = VISUALIZATION_CONFIG['mask_alpha']
-                    mask_rgba[mask == 255] = [*color, int(alpha * 255)]
+                    # 동적으로 할당된 색상 사용
+                    mask_rgba[mask == 255] = [*mask_color, int(alpha * 255)]
                     
                     mask_im = self.ax.imshow(
                         mask_rgba, 
@@ -94,7 +141,7 @@ class Visualizer:
                         box_vertices, 
                         closed=True, 
                         fill=False, 
-                        edgecolor=VISUALIZATION_CONFIG['box_color'], 
+                        edgecolor=box_color, # 동적으로 할당된 색상 사용
                         linewidth=VISUALIZATION_CONFIG['box_linewidth'],
                         zorder=4
                     )
