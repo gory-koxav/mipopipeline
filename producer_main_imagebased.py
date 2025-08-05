@@ -44,7 +44,7 @@ def main():
     try:
         # [수정] while 루프 대신 for 루프로 변경하여 정해진 프레임만큼만 실행
         for frame_index in range(total_frames):
-            frame_index = frame_index + 336 # [수정] 프레임 인덱스 시작을 120으로 조정
+            # frame_index = frame_index + 336 # [수정] 프레임 인덱스 시작을 조정
             print(f"\n--- 프레임 {frame_index + 1}/{total_frames} 처리 시작 ---")
             
             # 2.1. 현재 프레임 인덱스에 해당하는 모든 카메라의 이미지 일괄 로드

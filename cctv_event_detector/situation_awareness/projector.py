@@ -2,21 +2,25 @@
 
 import numpy as np
 import cv2
-from typing import Dict, Any, Optional
-
+from typing import List, Dict, Any, Optional
 from cctv_event_detector.core.models import FrameData, ProjectedData
 from config import CAMERA_INTRINSICS, CAMERA_EXTRINSICS
 
 class Projector:
     """
     단일 카메라의 프레임 데이터를 받아 절대 좌표계로 투영(사영 변환)하는
-    모든 계산을 담당합니다.
+    모든 계산을 담당합니다. (경계 상자 투영 로직 수정)
     """
-    def __init__(self):
+    def __init__(self, pixels_per_meter: int = 10):
+        """
+        Projector를 초기화합니다.
+        :param pixels_per_meter: 월드 좌표계 1미터를 몇 픽셀로 표현할지 결정하는 해상도 값
+        """
         self.fx = CAMERA_INTRINSICS['fx']
         self.fy = CAMERA_INTRINSICS['fy']
         self.cx = CAMERA_INTRINSICS['cx']
         self.cy = CAMERA_INTRINSICS['cy']
+        self.pixels_per_meter = pixels_per_meter
 
     def _rotation_matrix(self, pan_deg: float, tilt_deg: float) -> np.ndarray:
         """Pan(Yaw), Tilt(Pitch) 각도를 사용하여 회전 행렬을 생성합니다."""
@@ -50,90 +54,95 @@ class Projector:
 
     def project(self, frame_data: FrameData) -> ProjectedData:
         """
-        하나의 FrameData를 받아 이미지, 마스크, 객체 박스를 투영하고
+        하나의 FrameData를 받아 이미지, 마스크, 객체 박스를 평면도(Bird's-eye view)로 투영하고
         ProjectedData 객체로 반환합니다.
         """
         cam_config = CAMERA_EXTRINSICS.get(frame_data.camera_name)
         if not cam_config:
-            print(f"경고: {frame_data.camera_name}에 대한 카메라 설정을 찾을 수 없습니다. 건너뜁니다.")
-            return ProjectedData(camera_name=frame_data.camera_name, is_valid=False, warped_image=None, warped_masks=[], projected_boxes=[], extent=[], clip_polygon=np.array([]))
+            print(f"경고: {frame_data.camera_name}에 대한 카메라 설정을 찾을 수 없습니다.")
+            return ProjectedData(camera_name=frame_data.camera_name, is_valid=False)
 
-        R = self._rotation_matrix(cam_config['pan'], cam_config['tilt'])
-        t = cam_config['coord']
-        h_img, w_img = frame_data.image_shape
-
-        # 이미지의 네 꼭짓점 픽셀 좌표
-        src_corners = np.array([[0, 0], [w_img, 0], [w_img, h_img], [0, h_img]], dtype=np.float32)
-        
-        # 꼭짓점을 지면으로 투영
-        projected_corners = [self._project_pixel_to_ground(u, v, R, t) for u, v in src_corners]
-
-        if any(corner is None for corner in projected_corners):
-            return ProjectedData(camera_name=frame_data.camera_name, is_valid=False, warped_image=None, warped_masks=[], projected_boxes=[], extent=[], clip_polygon=np.array([]))
-
-        dst_corners = np.array(projected_corners, dtype=np.float32)
-
-        # Homography 행렬 계산
-        H_mat, _ = cv2.findHomography(src_corners, dst_corners, method=0)
-        
-        # 원본 이미지 로드 및 뒤집기 (기존 코드 로직 유지)
+        # 1. 원본 이미지 로드
         img = cv2.imread(frame_data.image_path, cv2.IMREAD_COLOR)
         if img is None:
             print(f"경고: 이미지 로드 실패 - {frame_data.image_path}")
-            img = np.zeros((*frame_data.image_shape, 3), dtype=np.uint8)
-        else:
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-            img = cv2.flip(img, 0)
-            img = cv2.flip(img, 1)
+            return ProjectedData(camera_name=frame_data.camera_name, is_valid=False)
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        h_img, w_img = img.shape[:2]
 
-        # 투영될 이미지의 범위(extent) 계산
+        R = self._rotation_matrix(cam_config['pan'], cam_config['tilt'])
+        t = np.array(cam_config['coord'])
+
+        # 2. 이미지의 네 꼭짓점을 월드 좌표계로 투영 (정상 작동하는 부분)
+        src_corners = np.array([[0, 0], [w_img, 0], [w_img, h_img], [0, h_img]], dtype=np.float32)
+        projected_corners = [self._project_pixel_to_ground(u, v, R, t) for u, v in src_corners]
+
+        if any(corner is None for corner in projected_corners):
+            print(f"경고: {frame_data.camera_name}의 일부 영역이 지평선 너머로 투영되어 변환할 수 없습니다.")
+            return ProjectedData(camera_name=frame_data.camera_name, is_valid=False)
+
+        dst_corners = np.array(projected_corners, dtype=np.float32)
+
+        # 3. Homography 및 최종 Warp 행렬 계산 (정상 작동하는 부분)
+        H_mat, _ = cv2.findHomography(src_corners, dst_corners)
+        if H_mat is None:
+            print(f"경고: {frame_data.camera_name}의 Homography 행렬 계산에 실패했습니다.")
+            return ProjectedData(camera_name=frame_data.camera_name, is_valid=False)
+
         min_x, max_x = np.min(dst_corners[:, 0]), np.max(dst_corners[:, 0])
         min_y, max_y = np.min(dst_corners[:, 1]), np.max(dst_corners[:, 1])
-        extent = [min_x, max_x, max_y, min_y]
-
-        # 이미지 워핑
-        # OpenCV의 warpPerspective는 출력 이미지 크기를 픽셀 단위로 받으므로,
-        # 투영된 좌표계의 크기를 적절한 해상도로 변환해야 합니다.
-        # 여기서는 시각화의 편의를 위해 직접 변환 행렬을 사용하지 않고,
-        # matplotlib의 기능(imshow의 extent)을 활용합니다.
         
-        # 객체 경계 상자 투영
+        warp_width = int(np.ceil((max_x - min_x) * self.pixels_per_meter))
+        warp_height = int(np.ceil((max_y - min_y) * self.pixels_per_meter))
+
+        if not (0 < warp_width < 8000 and 0 < warp_height < 8000):
+            print(f"경고: {frame_data.camera_name}의 변환 결과 크기({warp_width}x{warp_height})가 너무 큽니다.")
+            return ProjectedData(camera_name=frame_data.camera_name, is_valid=False)
+
+        T_matrix = np.array([
+            [self.pixels_per_meter, 0, -min_x * self.pixels_per_meter],
+            [0, self.pixels_per_meter, -min_y * self.pixels_per_meter],
+            [0, 0, 1]
+        ], dtype=np.float64)
+        
+        H_warp = T_matrix @ H_mat
+
+        # 4. 이미지와 마스크를 실제로 Warp(변환) (정상 작동하는 부분)
+        # Warp할 이미지는 뒤집어 주어야 원본 코드와 시각적으로 동일한 결과를 얻습니다.
+        img_flipped = cv2.flip(cv2.flip(img, 0), 1)
+        warped_image = cv2.warpPerspective(img_flipped, H_warp, (warp_width, warp_height), flags=cv2.INTER_LINEAR)
+        
+        warped_masks = []
+        for mask in frame_data.boundary_masks:
+            mask_flipped = cv2.flip(cv2.flip(mask, 0), 1)
+            warped_mask = cv2.warpPerspective(mask_flipped, H_warp, (warp_width, warp_height), flags=cv2.INTER_NEAREST)
+            warped_masks.append(warped_mask)
+
+        # 5. 객체 경계 상자 투영
         projected_boxes = []
         for det in frame_data.detections:
             x_min, y_min, w_box, h_box = det['bbox_xywh']
             x_max, y_max = x_min + w_box, y_min + h_box
             
-            # BBox의 네 꼭짓점을 원본 이미지 좌표계 기준으로 정의
-            # (좌상단, 우상단, 우하단, 좌하단)
-            box_corners_orig = np.array([
-                [x_min, y_min], [x_max, y_min],
-                [x_max, y_max], [x_min, y_max]
-            ], dtype=np.float32)
-
-            # 기존 코드처럼 이미지 flip에 맞춰 좌표 변환
-            box_corners_flipped = box_corners_orig.copy()
-            box_corners_flipped[:, 0] = w_img - 1 - box_corners_flipped[:, 0]
-            box_corners_flipped[:, 1] = h_img - 1 - box_corners_flipped[:, 1]
+            box_corners_pix = [
+                (x_min, y_min), (x_max, y_min),
+                (x_max, y_max), (x_min, y_max)
+            ]
             
-            # 변환된 BBox 꼭짓점을 절대 좌표계로 투영
-            projected_box_vertices = [self._project_pixel_to_ground(u, v, R, t) for u, v in box_corners_flipped]
+            # --- ✅ 최종 수정 사항 ✅ ---
+            # 이미지 모서리 투영이 성공한 방식과 동일하게,
+            # 경계 상자의 꼭짓점 좌표도 **뒤집지 않고** 투영 함수에 전달합니다.
+            projected_box_vertices = [self._project_pixel_to_ground(u, v, R, t) for u, v in box_corners_pix]
 
             if not any(v is None for v in projected_box_vertices):
                 projected_boxes.append(np.array(projected_box_vertices))
 
-        # 마스크 데이터 뒤집기
-        warped_masks = []
-        for mask in frame_data.boundary_masks:
-            flipped_mask = cv2.flip(mask, 0)
-            flipped_mask = cv2.flip(flipped_mask, 1)
-            warped_masks.append(flipped_mask)
-
         return ProjectedData(
             camera_name=frame_data.camera_name,
-            warped_image=img,
+            is_valid=True,
+            warped_image=warped_image,
             warped_masks=warped_masks,
             projected_boxes=projected_boxes,
-            extent=extent,
-            clip_polygon=dst_corners,
-            is_valid=True
+            extent=[min_x, max_x, max_y, min_y],
+            clip_polygon=dst_corners
         )

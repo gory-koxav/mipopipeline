@@ -27,7 +27,7 @@ SAM_CHECKPOINT_PATH = BASE_DIR / "checkpoints" / "segmentation_sam" / "sam_vit_h
 SAM_MODEL_TYPE = "vit_h"
 
 # SAM으로 분할된 이미지를 분류하는 데 사용할 YOLO 분류 모델의 경로입니다.
-SAM_YOLO_CLS_MODEL_PATH = BASE_DIR / "checkpoints" / "segmentation_yolo_cls" / "best.pt"
+SAM_YOLO_CLS_MODEL_PATH = BASE_DIR / "checkpoints" / "segmentation_yolo_cls" / "best_250724.pt"
 
 # SAM으로 지그류를 탐지 가능성을 높이기 위해 이미지 상단과 하단을 회색으로 채우는 비율입니다.
 TOP_CUTOFF_PERCENT = 20
