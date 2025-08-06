@@ -54,6 +54,7 @@ class FrameData:
     boundary_masks: List[np.ndarray] = field(default_factory=list) # 키가 아닌 실제 마스크 배열
     pinjig_masks: List[np.ndarray] = field(default_factory=list)  # pinjig 마스크 추가
     pinjig_classifications: List[Dict[str, Any]] = field(default_factory=list)  # pinjig 분류 정보 추가
+    assembly_classifications: List[Dict[str, Any]] = field(default_factory=list)  # assembly 분류 정보 추가
 
 @dataclass
 class ProjectedData:
@@ -63,6 +64,8 @@ class ProjectedData:
     warped_masks: List[np.ndarray]
     warped_pinjig_masks: List[np.ndarray]  # warped pinjig 마스크 추가
     projected_boxes: List[np.ndarray]
+    projected_assembly_boxes: List[np.ndarray]  # assembly classification의 투영된 박스
+    projected_assembly_labels: List[Dict[str, Any]]  # 투영된 assembly 라벨 정보 추가
     extent: List[float]  # Matplotlib.imshow의 extent [left, right, bottom, top]
     clip_polygon: np.ndarray # 이미지 및 마스크 클리핑 경로
     is_valid: bool = True

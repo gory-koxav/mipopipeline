@@ -70,6 +70,8 @@ class Projector:
                 warped_masks=[],
                 warped_pinjig_masks=[],
                 projected_boxes=[],
+                projected_assembly_boxes=[],
+                projected_assembly_labels=[],
                 extent=[0, 0, 0, 0],
                 clip_polygon=np.array([]),
                 is_valid=False
@@ -85,6 +87,8 @@ class Projector:
                 warped_masks=[],
                 warped_pinjig_masks=[],
                 projected_boxes=[],
+                projected_assembly_boxes=[],
+                projected_assembly_labels=[],
                 extent=[0, 0, 0, 0],
                 clip_polygon=np.array([]),
                 is_valid=False
@@ -107,6 +111,8 @@ class Projector:
                 warped_masks=[],
                 warped_pinjig_masks=[],
                 projected_boxes=[],
+                projected_assembly_boxes=[],
+                projected_assembly_labels=[],
                 extent=[0, 0, 0, 0],
                 clip_polygon=np.array([]),
                 is_valid=False
@@ -124,6 +130,8 @@ class Projector:
                 warped_masks=[],
                 warped_pinjig_masks=[],
                 projected_boxes=[],
+                projected_assembly_boxes=[],
+                projected_assembly_labels=[],
                 extent=[0, 0, 0, 0],
                 clip_polygon=np.array([]),
                 is_valid=False
@@ -143,6 +151,8 @@ class Projector:
                 warped_masks=[],
                 warped_pinjig_masks=[],
                 projected_boxes=[],
+                projected_assembly_boxes=[],
+                projected_assembly_labels=[],
                 extent=[0, 0, 0, 0],
                 clip_polygon=np.array([]),
                 is_valid=False
@@ -167,14 +177,14 @@ class Projector:
             warped_mask = cv2.warpPerspective(mask_flipped, H_warp, (warp_width, warp_height), flags=cv2.INTER_NEAREST)
             warped_masks.append(warped_mask)
 
-        # 4-2. Pinjig 마스크 워핑 (새로 추가)
+        # 4-2. Pinjig 마스크 워핑
         warped_pinjig_masks = []
         for mask in frame_data.pinjig_masks:
             mask_flipped = cv2.flip(cv2.flip(mask, 0), 1)
             warped_pinjig_mask = cv2.warpPerspective(mask_flipped, H_warp, (warp_width, warp_height), flags=cv2.INTER_NEAREST)
             warped_pinjig_masks.append(warped_pinjig_mask)
 
-        # 5. 객체 경계 상자 투영 (수정된 부분)
+        # 5. 객체 경계 상자 투영 (detections)
         projected_boxes = []
         for det in frame_data.detections:
             class_name = det.get('class_name')
@@ -201,7 +211,6 @@ class Projector:
             box_corners_flipped = np.array(box_corners_flipped, dtype=np.float32)
             
             # Homography 변환을 사용하여 박스 좌표 변환
-            # 이미지와 동일한 H_warp를 사용
             box_corners_transformed = cv2.perspectiveTransform(
                 box_corners_flipped.reshape(-1, 1, 2), H_warp
             ).reshape(-1, 2)
@@ -213,13 +222,77 @@ class Projector:
             
             projected_boxes.append(box_corners_world)
 
+        # 6. Assembly classifications 처리 (독립적으로 처리)
+        projected_assembly_boxes = []
+        projected_assembly_labels = []
+        
+        for assembly_class in frame_data.assembly_classifications:
+            # assembly_classifications의 bbox 직접 사용
+            bbox = assembly_class.get('bbox', [])
+            if len(bbox) != 4:
+                continue
+                
+            # bbox는 [x_min, y_min, x_max, y_max] 형식으로 가정
+            x_min, y_min, x_max, y_max = bbox
+            
+            # 원본 픽셀 좌표 (박스의 네 꼭짓점)
+            box_corners_orig = np.array([
+                [x_min, y_min], [x_max, y_min],
+                [x_max, y_max], [x_min, y_max]
+            ], dtype=np.float32)
+            
+            # 이미지와 동일하게 플립 적용 (상하좌우 뒤집기)
+            box_corners_flipped = []
+            for u, v in box_corners_orig:
+                flipped_u = w_img - 1 - u
+                flipped_v = h_img - 1 - v
+                box_corners_flipped.append([flipped_u, flipped_v])
+            
+            box_corners_flipped = np.array(box_corners_flipped, dtype=np.float32)
+            
+            # Homography 변환을 사용하여 박스 좌표 변환
+            box_corners_transformed = cv2.perspectiveTransform(
+                box_corners_flipped.reshape(-1, 1, 2), H_warp
+            ).reshape(-1, 2)
+            
+            # 픽셀 좌표를 월드 좌표로 변환 (T_matrix의 역변환)
+            box_corners_world = box_corners_transformed / self.pixels_per_meter
+            box_corners_world[:, 0] += min_x
+            box_corners_world[:, 1] += min_y
+            
+            projected_assembly_boxes.append(box_corners_world)
+            
+            # BBOX 중심점 계산 및 변환
+            center_x = (x_min + x_max) / 2
+            center_y = (y_min + y_max) / 2
+            
+            # 중심점을 플립
+            flipped_center_x = w_img - 1 - center_x
+            flipped_center_y = h_img - 1 - center_y
+            
+            # 중심점 변환
+            center_point = np.array([[[flipped_center_x, flipped_center_y]]], dtype=np.float32)
+            projected_center = cv2.perspectiveTransform(center_point, H_warp)[0, 0]
+            
+            # 픽셀 좌표를 월드 좌표로 변환
+            world_center_x = projected_center[0] / self.pixels_per_meter + min_x
+            world_center_y = projected_center[1] / self.pixels_per_meter + min_y
+            
+            projected_assembly_labels.append({
+                'position': [world_center_x, world_center_y],
+                'label': assembly_class.get('top1_class', 'Unknown'),
+                'confidence': assembly_class.get('top1_confidence', 0.0)
+            })
+
         return ProjectedData(
             camera_name=frame_data.camera_name,
             is_valid=True,
             warped_image=warped_image,
             warped_masks=warped_masks,
-            warped_pinjig_masks=warped_pinjig_masks,  # pinjig 마스크 추가
+            warped_pinjig_masks=warped_pinjig_masks,
             projected_boxes=projected_boxes,
+            projected_assembly_boxes=projected_assembly_boxes,  # assembly 박스 추가
+            projected_assembly_labels=projected_assembly_labels,  # assembly label 정보 추가
             extent=[min_x, max_x, max_y, min_y],
             clip_polygon=dst_corners
         )

@@ -1,5 +1,3 @@
-# cctv_event_detector/situation_awareness/visualizer.py
-
 import matplotlib.pyplot as plt
 from matplotlib.patches import Polygon
 import numpy as np
@@ -112,18 +110,18 @@ class Visualizer:
 
         # 위쪽 플롯: 이미지만
         self._draw_on_ax(self.axs[0], projected_data_list, color_map, 
-                         show_image=True, show_masks=False, show_boxes=False)
+                         show_image=True, show_masks=False, show_boxes=False, show_labels=False)
         
-        # 중간 플롯: 이미지, 마스크, 경계 상자 모두
+        # 중간 플롯: 이미지, 마스크, 경계 상자, 라벨 모두
         self._draw_on_ax(self.axs[1], projected_data_list, color_map, 
-                         show_image=True, show_masks=True, show_boxes=True)
+                         show_image=True, show_masks=True, show_boxes=True, show_labels=True)
         
-        # 아래쪽 플롯: 마스크와 경계 상자만
+        # 아래쪽 플롯: 마스크, 경계 상자, 라벨
         self._draw_on_ax(self.axs[2], projected_data_list, color_map, 
-                         show_image=False, show_masks=True, show_boxes=True)
+                         show_image=False, show_masks=True, show_boxes=True, show_labels=True)
 
     def _draw_on_ax(self, ax: plt.Axes, projected_data_list: List[ProjectedData], color_map: Dict, 
-                    show_image: bool, show_masks: bool, show_boxes: bool):
+                    show_image: bool, show_masks: bool, show_boxes: bool, show_labels: bool):
         """
         지정된 축(ax)에 모든 투영 데이터를 그리는 헬퍼 함수.
 
@@ -134,6 +132,7 @@ class Visualizer:
             show_image (bool): 워핑된 원본 이미지를 표시할지 여부.
             show_masks (bool): 마스크를 표시할지 여부.
             show_boxes (bool): 경계 상자를 표시할지 여부.
+            show_labels (bool): assembly 라벨을 표시할지 여부.
         """
         for data in projected_data_list:
             if not data.is_valid:
@@ -202,7 +201,47 @@ class Visualizer:
                         zorder=4
                     )
                     ax.add_patch(poly)
-
+                
+                # Assembly classification 박스 표시 (점선으로 구분)
+                for box_vertices in data.projected_assembly_boxes:
+                    poly = Polygon(
+                        box_vertices, 
+                        closed=True, 
+                        fill=False, 
+                        edgecolor=colors['box_color'],
+                        linewidth=VISUALIZATION_CONFIG.get('box_linewidth', 2),
+                        linestyle='--',  # 점선으로 구분
+                        zorder=4
+                    )
+                    ax.add_patch(poly)
+            
+            # 5. Assembly classification 라벨 표시
+            if show_labels and VISUALIZATION_CONFIG.get('show_assembly_labels', True):
+                for label_info in data.projected_assembly_labels:
+                    x, y = label_info['position']
+                    label_text = label_info['label']
+                    confidence = label_info['confidence']
+                    
+                    # 라벨 텍스트 생성 (신뢰도 포함)
+                    display_text = f"{label_text}\n({confidence:.2f})"
+                    
+                    # 텍스트 표시 (배경 박스와 함께)
+                    ax.text(
+                        x, y, display_text,
+                        color='white',
+                        fontsize=10,
+                        fontweight='bold',
+                        ha='center',
+                        va='center',
+                        bbox=dict(
+                            boxstyle='round,pad=0.3',
+                            facecolor=colors['box_color'],
+                            edgecolor='white',
+                            alpha=0.8
+                        ),
+                        zorder=5
+                    )
+    
     def save_and_close(self):
         """결과 이미지를 파일로 저장하고 plot을 닫습니다."""
         output_path = self.output_dir / f"projection_{self.batch_id}.png"

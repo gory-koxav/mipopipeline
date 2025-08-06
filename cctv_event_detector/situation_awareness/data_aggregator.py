@@ -5,7 +5,7 @@ import json
 import numpy as np
 from typing import List, Dict, Any, Tuple
 
-from config import REDIS_HOST, REDIS_PORT, REDIS_DB, IMAGE_SHAPE, PINJIG_TARGET_CLASSES
+from config import REDIS_HOST, REDIS_PORT, REDIS_DB, IMAGE_SHAPE, PINJIG_TARGET_CLASSES, PROJECTION_TARGET_CLASSES
 from cctv_event_detector.core.models import FrameData
 
 class DataAggregator:
@@ -17,6 +17,7 @@ class DataAggregator:
         self.redis_client = redis_client
         self.image_shape = IMAGE_SHAPE
         self.pinjig_target_classes = PINJIG_TARGET_CLASSES  # config에서 가져온 pinjig 타겟 클래스
+        self.projection_target_classes = PROJECTION_TARGET_CLASSES  # detection 타겟 클래스
 
     def _decompress_mask(self, compressed_mask: bytes, shape: Tuple[int, int]) -> np.ndarray:
         """
@@ -111,19 +112,30 @@ class DataAggregator:
                                     reconstructed_pinjig_masks.append(decompressed_mask)
                                     filtered_pinjig_classifications.append(classification)
 
-            # 5. FrameData 객체 생성
+            # 5. Assembly classifications 가져오기 (필터링 없이 모든 요소 포함)
+            detections = inference_data.get("detections", [])
+            assembly_classifications = inference_data.get("assembly_classifications", [])
+
+            # 6. FrameData 객체 생성
             frame = FrameData(
                 image_id=data.get("image_id", ""),
                 camera_name=data.get("camera_name", ""),
                 image_path=data.get("image_path", ""),
                 captured_at=data.get("captured_at", ""),
                 image_shape=self.image_shape,
-                detections=inference_data.get("detections", []),
+                detections=detections,
                 boundary_masks=reconstructed_masks,
                 pinjig_masks=reconstructed_pinjig_masks,
-                pinjig_classifications=filtered_pinjig_classifications
+                pinjig_classifications=filtered_pinjig_classifications,
+                assembly_classifications=assembly_classifications  # 모든 assembly classifications 포함
             )
             all_frames_data.append(frame)
 
         print(f"✅ Batch ID '{batch_id}'에서 {len(all_frames_data)}개 카메라 데이터를 성공적으로 수집했습니다.")
+        
+        # Assembly classifications 통계 출력
+        total_assembly_classifications = sum(len(frame.assembly_classifications) for frame in all_frames_data)
+        if total_assembly_classifications > 0:
+            print(f"   - 총 {total_assembly_classifications}개의 assembly classifications")
+        
         return all_frames_data
