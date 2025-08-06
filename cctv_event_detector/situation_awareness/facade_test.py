@@ -4,7 +4,7 @@ import redis
 import time
 
 # ✅ 요구사항: config에서 시각화 대상 클래스 목록을 가져옵니다.
-from config import REDIS_HOST, REDIS_PORT, REDIS_DB, PROJECTION_TARGET_CLASSES
+from config import REDIS_HOST, REDIS_PORT, REDIS_DB, PROJECTION_TARGET_CLASSES, PINJIG_TARGET_CLASSES
 from .data_aggregator import DataAggregator
 from .projector import Projector
 from .visualizer import Visualizer
@@ -48,28 +48,42 @@ class SituationAwarenessFacade:
             return
 
         print(f"\n🚀 Batch ID '{batch_id}' 처리를 시작합니다...")
+        print(f"📋 Detection 타겟 클래스: {PROJECTION_TARGET_CLASSES}")
+        print(f"📋 Pinjig 타겟 클래스: {PINJIG_TARGET_CLASSES}")
         start_time = time.time()
         
-        # 1. Redis에서 데이터 집계
+        # 1. Redis에서 데이터 집계 (pinjig 데이터 포함)
         all_frames_data = self.aggregator.get_batch_data(batch_id)
         if not all_frames_data:
             print(f"데이터를 찾을 수 없습니다. Batch ID '{batch_id}'에 해당하는 데이터가 Redis에 있는지 확인해주세요.")
             return
 
-        # 🆕 1-1. 원본 데이터 시각화 (flip 및 좌표 변환 없이)
-        print("\n📸 원본 데이터 시각화를 수행합니다...")
-        raw_visualizer = RawDataVisualizer(batch_id)
-        raw_visualizer.visualize_all_frames(all_frames_data)
+        # Pinjig 데이터 통계 출력
+        total_pinjig_masks = sum(len(frame.pinjig_masks) for frame in all_frames_data)
+        total_boundary_masks = sum(len(frame.boundary_masks) for frame in all_frames_data)
+        total_detections = sum(len(frame.detections) for frame in all_frames_data)
+        
+        print(f"📊 데이터 통계:")
+        print(f"   - 총 {total_detections}개의 객체 감지")
+        print(f"   - 총 {total_boundary_masks}개의 boundary 마스크")
+        print(f"   - 총 {total_pinjig_masks}개의 pinjig/hbeamjig 마스크")
 
-        # 2. 각 카메라 데이터에 대해 사영 변환 수행
+        # # 🆕 1-1. 원본 데이터 시각화 (flip 및 좌표 변환 없이)
+        # print("\n📸 원본 데이터 시각화를 수행합니다...")
+        # raw_visualizer = RawDataVisualizer(batch_id)
+        # raw_visualizer.visualize_all_frames(all_frames_data)
+
+        # 2. 각 카메라 데이터에 대해 사영 변환 수행 (pinjig 포함)
         projected_results = []
         for frame_data in all_frames_data:
             projected_data = self.projector.project(frame_data)
             projected_results.append(projected_data)
         
-        print(f"✅ {len(projected_results)}개 카메라 데이터의 사영 변환을 완료했습니다.")
+        # 유효한 투영 결과 개수 확인
+        valid_projections = sum(1 for p in projected_results if p.is_valid)
+        print(f"✅ {len(projected_results)}개 카메라 중 {valid_projections}개의 사영 변환을 성공적으로 완료했습니다.")
 
-        # 3. 투영된 결과들을 시각화하고 파일로 저장
+        # 3. 투영된 결과들을 시각화하고 파일로 저장 (pinjig 포함)
         visualizer = Visualizer(batch_id)
         visualizer.draw(projected_results)
         visualizer.save_and_close()

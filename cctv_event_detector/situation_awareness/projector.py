@@ -64,13 +64,31 @@ class Projector:
         cam_config = CAMERA_EXTRINSICS.get(frame_data.camera_name)
         if not cam_config:
             print(f"경고: {frame_data.camera_name}에 대한 카메라 설정을 찾을 수 없습니다.")
-            return ProjectedData(camera_name=frame_data.camera_name, is_valid=False)
+            return ProjectedData(
+                camera_name=frame_data.camera_name, 
+                warped_image=None,
+                warped_masks=[],
+                warped_pinjig_masks=[],
+                projected_boxes=[],
+                extent=[0, 0, 0, 0],
+                clip_polygon=np.array([]),
+                is_valid=False
+            )
 
         # 1. 원본 이미지 로드
         img = cv2.imread(frame_data.image_path, cv2.IMREAD_COLOR)
         if img is None:
             print(f"경고: 이미지 로드 실패 - {frame_data.image_path}")
-            return ProjectedData(camera_name=frame_data.camera_name, is_valid=False)
+            return ProjectedData(
+                camera_name=frame_data.camera_name, 
+                warped_image=None,
+                warped_masks=[],
+                warped_pinjig_masks=[],
+                projected_boxes=[],
+                extent=[0, 0, 0, 0],
+                clip_polygon=np.array([]),
+                is_valid=False
+            )
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         h_img, w_img = img.shape[:2]
 
@@ -83,7 +101,16 @@ class Projector:
 
         if any(corner is None for corner in projected_corners):
             print(f"경고: {frame_data.camera_name}의 일부 영역이 지평선 너머로 투영되어 변환할 수 없습니다.")
-            return ProjectedData(camera_name=frame_data.camera_name, is_valid=False)
+            return ProjectedData(
+                camera_name=frame_data.camera_name, 
+                warped_image=None,
+                warped_masks=[],
+                warped_pinjig_masks=[],
+                projected_boxes=[],
+                extent=[0, 0, 0, 0],
+                clip_polygon=np.array([]),
+                is_valid=False
+            )
 
         dst_corners = np.array(projected_corners, dtype=np.float32)
 
@@ -91,7 +118,16 @@ class Projector:
         H_mat, _ = cv2.findHomography(src_corners, dst_corners)
         if H_mat is None:
             print(f"경고: {frame_data.camera_name}의 Homography 행렬 계산에 실패했습니다.")
-            return ProjectedData(camera_name=frame_data.camera_name, is_valid=False)
+            return ProjectedData(
+                camera_name=frame_data.camera_name, 
+                warped_image=None,
+                warped_masks=[],
+                warped_pinjig_masks=[],
+                projected_boxes=[],
+                extent=[0, 0, 0, 0],
+                clip_polygon=np.array([]),
+                is_valid=False
+            )
 
         min_x, max_x = np.min(dst_corners[:, 0]), np.max(dst_corners[:, 0])
         min_y, max_y = np.min(dst_corners[:, 1]), np.max(dst_corners[:, 1])
@@ -101,7 +137,16 @@ class Projector:
 
         if not (0 < warp_width < 8000 and 0 < warp_height < 8000):
             print(f"경고: {frame_data.camera_name}의 변환 결과 크기({warp_width}x{warp_height})가 너무 큽니다.")
-            return ProjectedData(camera_name=frame_data.camera_name, is_valid=False)
+            return ProjectedData(
+                camera_name=frame_data.camera_name, 
+                warped_image=None,
+                warped_masks=[],
+                warped_pinjig_masks=[],
+                projected_boxes=[],
+                extent=[0, 0, 0, 0],
+                clip_polygon=np.array([]),
+                is_valid=False
+            )
 
         T_matrix = np.array([
             [self.pixels_per_meter, 0, -min_x * self.pixels_per_meter],
@@ -115,11 +160,19 @@ class Projector:
         img_flipped = cv2.flip(cv2.flip(img, 0), 1)
         warped_image = cv2.warpPerspective(img_flipped, H_warp, (warp_width, warp_height), flags=cv2.INTER_LINEAR)
         
+        # 4-1. Boundary 마스크 워핑
         warped_masks = []
         for mask in frame_data.boundary_masks:
             mask_flipped = cv2.flip(cv2.flip(mask, 0), 1)
             warped_mask = cv2.warpPerspective(mask_flipped, H_warp, (warp_width, warp_height), flags=cv2.INTER_NEAREST)
             warped_masks.append(warped_mask)
+
+        # 4-2. Pinjig 마스크 워핑 (새로 추가)
+        warped_pinjig_masks = []
+        for mask in frame_data.pinjig_masks:
+            mask_flipped = cv2.flip(cv2.flip(mask, 0), 1)
+            warped_pinjig_mask = cv2.warpPerspective(mask_flipped, H_warp, (warp_width, warp_height), flags=cv2.INTER_NEAREST)
+            warped_pinjig_masks.append(warped_pinjig_mask)
 
         # 5. 객체 경계 상자 투영 (수정된 부분)
         projected_boxes = []
@@ -165,6 +218,7 @@ class Projector:
             is_valid=True,
             warped_image=warped_image,
             warped_masks=warped_masks,
+            warped_pinjig_masks=warped_pinjig_masks,  # pinjig 마스크 추가
             projected_boxes=projected_boxes,
             extent=[min_x, max_x, max_y, min_y],
             clip_polygon=dst_corners

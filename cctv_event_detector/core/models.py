@@ -42,10 +42,6 @@ class CapturedImage:
     def __post_init__(self):
         self.__repr__ = lambda: f"CapturedImage(image_id={self.image_id})"
 
-# ==============================================================================
-#                      상황 인식용 데이터 모델 (신규 추가)
-# ==============================================================================
-
 @dataclass
 class FrameData:
     """Redis에서 수집 및 파싱한 단일 카메라 프레임의 모든 정보를 담는 DTO"""
@@ -56,6 +52,8 @@ class FrameData:
     image_shape: Tuple[int, int]
     detections: List[Dict[str, Any]] = field(default_factory=list)
     boundary_masks: List[np.ndarray] = field(default_factory=list) # 키가 아닌 실제 마스크 배열
+    pinjig_masks: List[np.ndarray] = field(default_factory=list)  # pinjig 마스크 추가
+    pinjig_classifications: List[Dict[str, Any]] = field(default_factory=list)  # pinjig 분류 정보 추가
 
 @dataclass
 class ProjectedData:
@@ -63,6 +61,7 @@ class ProjectedData:
     camera_name: str
     warped_image: Optional[np.ndarray]
     warped_masks: List[np.ndarray]
+    warped_pinjig_masks: List[np.ndarray]  # warped pinjig 마스크 추가
     projected_boxes: List[np.ndarray]
     extent: List[float]  # Matplotlib.imshow의 extent [left, right, bottom, top]
     clip_polygon: np.ndarray # 이미지 및 마스크 클리핑 경로

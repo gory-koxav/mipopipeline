@@ -157,3 +157,4 @@ VISUALIZATION_CONFIG = {
 }
 
 PROJECTION_TARGET_CLASSES = ["block", "panel"]
+PINJIG_TARGET_CLASSES = ["pinjig", "hbeamjig"]  # pinjig 관련 타겟 클래스

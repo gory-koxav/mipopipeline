@@ -61,6 +61,13 @@ class Visualizer:
             (245, 130, 48), (145, 30, 180), (70, 240, 240), (240, 50, 230),
             (210, 245, 60), (250, 190, 212), (0, 128, 128), (220, 190, 255)
         ]
+        
+        # Pinjig 마스크를 위한 별도 색상 팔레트
+        pinjig_color_palette = [
+            (255, 100, 100), (100, 255, 100), (100, 100, 255), (255, 255, 100),
+            (255, 100, 255), (100, 255, 255), (200, 150, 100), (150, 100, 200)
+        ]
+        
         # Matplotlib의 `edgecolor`에서 사용하기 위해 0-1 범위로 정규화된 색상
         normalized_palette = [(r/255, g/255, b/255) for r, g, b in color_palette]
         
@@ -78,8 +85,10 @@ class Visualizer:
         # 고유 식별자별로 색상을 매핑합니다.
         for i, uid in enumerate(unique_ids):
             color_index = i % len(color_palette)
+            pinjig_color_index = i % len(pinjig_color_palette)
             color_map[uid] = {
                 'mask_color': color_palette[color_index],
+                'pinjig_color': pinjig_color_palette[pinjig_color_index],
                 'box_color': normalized_palette[color_index]
             }
         
@@ -95,11 +104,13 @@ class Visualizer:
             
             if unique_id in color_map:
                 mask_color = color_map[unique_id]['mask_color']
+                pinjig_color = color_map[unique_id]['pinjig_color']
                 box_color = color_map[unique_id]['box_color']
             else:
                 # 만약의 경우를 대비한 기본값 설정
-                mask_color = VISUALIZATION_CONFIG['mask_color']
-                box_color = VISUALIZATION_CONFIG['box_color']
+                mask_color = VISUALIZATION_CONFIG.get('mask_color', (255, 0, 0))
+                pinjig_color = (255, 200, 100)  # 기본 pinjig 색상
+                box_color = VISUALIZATION_CONFIG.get('box_color', (1, 0, 0))
             # --- 색상 가져오기 끝 ---
 
             # 클리핑을 위한 폴리곤 생성
@@ -107,7 +118,7 @@ class Visualizer:
             self.ax.add_patch(clip_polygon)
 
             # 1. 워핑된 원본 이미지 표시
-            if VISUALIZATION_CONFIG['show_warped_image'] and data.warped_image is not None:
+            if VISUALIZATION_CONFIG.get('show_warped_image', True) and data.warped_image is not None:
                 im = self.ax.imshow(
                     data.warped_image, 
                     extent=data.extent, 
@@ -117,12 +128,12 @@ class Visualizer:
                 )
                 im.set_clip_path(clip_polygon)
             
-            # 2. 워핑된 마스크 표시
-            if VISUALIZATION_CONFIG['show_boundary_masks']:
+            # 2. 워핑된 boundary 마스크 표시
+            if VISUALIZATION_CONFIG.get('show_boundary_masks', True):
                 for mask in data.warped_masks:
                     # 마스크를 RGBA 이미지로 변환
                     mask_rgba = np.zeros((*mask.shape, 4), dtype=np.uint8)
-                    alpha = VISUALIZATION_CONFIG['mask_alpha']
+                    alpha = VISUALIZATION_CONFIG.get('mask_alpha', 0.5)
                     # 동적으로 할당된 색상 사용
                     mask_rgba[mask == 255] = [*mask_color, int(alpha * 255)]
                     
@@ -133,16 +144,33 @@ class Visualizer:
                         zorder=3
                     )
                     mask_im.set_clip_path(clip_polygon)
+            
+            # 3. 워핑된 pinjig 마스크 표시 (새로 추가)
+            if VISUALIZATION_CONFIG.get('show_pinjig_masks', True):  # 기본값 True
+                for mask in data.warped_pinjig_masks:
+                    # pinjig 마스크를 RGBA 이미지로 변환
+                    mask_rgba = np.zeros((*mask.shape, 4), dtype=np.uint8)
+                    alpha = VISUALIZATION_CONFIG.get('pinjig_mask_alpha', 0.4)
+                    # pinjig 전용 색상 사용
+                    mask_rgba[mask == 255] = [*pinjig_color, int(alpha * 255)]
+                    
+                    mask_im = self.ax.imshow(
+                        mask_rgba, 
+                        extent=data.extent, 
+                        interpolation='nearest',
+                        zorder=3.5  # boundary mask보다 약간 위에 표시
+                    )
+                    mask_im.set_clip_path(clip_polygon)
 
-            # 3. 감지된 객체(사각형) 표시
-            if VISUALIZATION_CONFIG['show_object_boxes']:
+            # 4. 감지된 객체(사각형) 표시
+            if VISUALIZATION_CONFIG.get('show_object_boxes', True):
                 for box_vertices in data.projected_boxes:
                     poly = Polygon(
                         box_vertices, 
                         closed=True, 
                         fill=False, 
                         edgecolor=box_color, # 동적으로 할당된 색상 사용
-                        linewidth=VISUALIZATION_CONFIG['box_linewidth'],
+                        linewidth=VISUALIZATION_CONFIG.get('box_linewidth', 2),
                         zorder=4
                     )
                     self.ax.add_patch(poly)

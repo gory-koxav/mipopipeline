@@ -1,4 +1,3 @@
-# 이 파일은 레포지토리로 가야하지 않을까?
 # cctv_event_detector/situation_awareness/data_aggregator.py
 
 import redis
@@ -6,7 +5,7 @@ import json
 import numpy as np
 from typing import List, Dict, Any, Tuple
 
-from config import REDIS_HOST, REDIS_PORT, REDIS_DB, IMAGE_SHAPE
+from config import REDIS_HOST, REDIS_PORT, REDIS_DB, IMAGE_SHAPE, PINJIG_TARGET_CLASSES
 from cctv_event_detector.core.models import FrameData
 
 class DataAggregator:
@@ -17,6 +16,7 @@ class DataAggregator:
     def __init__(self, redis_client: redis.Redis):
         self.redis_client = redis_client
         self.image_shape = IMAGE_SHAPE
+        self.pinjig_target_classes = PINJIG_TARGET_CLASSES  # config에서 가져온 pinjig 타겟 클래스
 
     def _decompress_mask(self, compressed_mask: bytes, shape: Tuple[int, int]) -> np.ndarray:
         """
@@ -86,7 +86,32 @@ class DataAggregator:
                         decompressed_mask = self._decompress_mask(compressed_mask, self.image_shape)
                         reconstructed_masks.append(decompressed_mask)
 
-            # 4. FrameData 객체 생성
+            # 4. Pinjig 마스크 데이터 가져오기 및 복원
+            reconstructed_pinjig_masks = []
+            filtered_pinjig_classifications = []
+            
+            if 'pinjig_masks' in inference_data and isinstance(inference_data['pinjig_masks'], list):
+                pinjig_masks = inference_data.get('pinjig_masks', [])
+                pinjig_classifications = inference_data.get('pinjig_classifications', [])
+                
+                # pinjig_classifications의 top1_class가 target_classes에 포함되는 것만 필터링
+                for classification in pinjig_classifications:
+                    if classification.get('top1_class') in self.pinjig_target_classes:
+                        mask_index = classification.get('mask_index')
+                        
+                        # 해당 인덱스의 마스크 찾기
+                        if mask_index is not None and mask_index < len(pinjig_masks):
+                            mask_info = pinjig_masks[mask_index]
+                            mask_key = mask_info.get('segmentation')
+                            
+                            if mask_key:
+                                compressed_mask = self.redis_client.get(mask_key)
+                                if compressed_mask:
+                                    decompressed_mask = self._decompress_mask(compressed_mask, self.image_shape)
+                                    reconstructed_pinjig_masks.append(decompressed_mask)
+                                    filtered_pinjig_classifications.append(classification)
+
+            # 5. FrameData 객체 생성
             frame = FrameData(
                 image_id=data.get("image_id", ""),
                 camera_name=data.get("camera_name", ""),
@@ -94,7 +119,9 @@ class DataAggregator:
                 captured_at=data.get("captured_at", ""),
                 image_shape=self.image_shape,
                 detections=inference_data.get("detections", []),
-                boundary_masks=reconstructed_masks
+                boundary_masks=reconstructed_masks,
+                pinjig_masks=reconstructed_pinjig_masks,
+                pinjig_classifications=filtered_pinjig_classifications
             )
             all_frames_data.append(frame)
 
