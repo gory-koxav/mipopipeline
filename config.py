@@ -14,6 +14,11 @@ BASE_DIR = Path(__file__).resolve().parent
 # 원본 이미지가 저장된 디렉토리입니다.
 IMAGE_DATA_DIR = BASE_DIR / "data" / "mipo" / "timelapse_250224-250321"
 
+# Add this to config.py after the existing SAM settings
+
+# --- Assembly Classification Model 설정 ---
+# 조립 상태를 분류하기 위한 YOLO classification 모델의 경로입니다.
+ASSEMBLY_CLS_MODEL_PATH = BASE_DIR / "checkpoints" / "stage_cls" / "best_250312.pt"
 
 # --- SAM (Segment Anything Model) 관련 설정 ---
 # SAM을 통해 분할 및 분류된 결과(크롭 이미지, 오버레이)가 저장될 부모 디렉토리입니다.
