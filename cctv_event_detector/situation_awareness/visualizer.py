@@ -205,18 +205,18 @@ class Visualizer:
                     )
                     ax.add_patch(poly)
                 
-                # Assembly classification 박스 표시 (점선으로 구분)
-                for box_vertices in data.projected_assembly_boxes:
-                    poly = Polygon(
-                        box_vertices, 
-                        closed=True, 
-                        fill=False, 
-                        edgecolor=colors['box_color'],
-                        linewidth=VISUALIZATION_CONFIG.get('box_linewidth', 2),
-                        linestyle='--',  # 점선으로 구분
-                        zorder=4
-                    )
-                    ax.add_patch(poly)
+                # # Assembly classification 박스 표시 (점선으로 구분)
+                # for box_vertices in data.projected_assembly_boxes:
+                #     poly = Polygon(
+                #         box_vertices, 
+                #         closed=True, 
+                #         fill=False, 
+                #         edgecolor=colors['box_color'],
+                #         linewidth=VISUALIZATION_CONFIG.get('box_linewidth', 2),
+                #         linestyle='--',  # 점선으로 구분
+                #         zorder=4
+                #     )
+                #     ax.add_patch(poly)
             
             # 5. Assembly classification 라벨 표시
             if show_labels and VISUALIZATION_CONFIG.get('show_assembly_labels', True):
