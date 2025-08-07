@@ -1,3 +1,5 @@
+# cctv_event_detector/situation_awareness/visualizer.py
+
 import matplotlib.pyplot as plt
 from matplotlib.patches import Polygon
 import numpy as np
@@ -39,7 +41,7 @@ class Visualizer:
         )
         self._setup_background(
             self.axs[2], 
-            title=f"Situation Awareness Map (Masks & Boxes Only) - Batch ID: {self.batch_id}"
+            title=f"Situation Awareness Map (Masks, Boxes & Merged Regions) - Batch ID: {self.batch_id}"
         )
         
         # 플롯 간 간격 조절
@@ -110,18 +112,18 @@ class Visualizer:
 
         # 위쪽 플롯: 이미지만
         self._draw_on_ax(self.axs[0], projected_data_list, color_map, 
-                         show_image=True, show_masks=False, show_boxes=False, show_labels=False)
+                         show_image=True, show_masks=False, show_boxes=False, show_labels=False, show_merged=False)
         
         # 중간 플롯: 이미지, 마스크, 경계 상자, 라벨 모두
         self._draw_on_ax(self.axs[1], projected_data_list, color_map, 
-                         show_image=True, show_masks=True, show_boxes=True, show_labels=True)
+                         show_image=True, show_masks=True, show_boxes=True, show_labels=True, show_merged=False)
         
-        # 아래쪽 플롯: 마스크, 경계 상자, 라벨
+        # 아래쪽 플롯: 마스크, 경계 상자, 라벨, 병합된 박스
         self._draw_on_ax(self.axs[2], projected_data_list, color_map, 
-                         show_image=False, show_masks=True, show_boxes=True, show_labels=True)
+                         show_image=False, show_masks=True, show_boxes=True, show_labels=True, show_merged=True)
 
     def _draw_on_ax(self, ax: plt.Axes, projected_data_list: List[ProjectedData], color_map: Dict, 
-                    show_image: bool, show_masks: bool, show_boxes: bool, show_labels: bool):
+                    show_image: bool, show_masks: bool, show_boxes: bool, show_labels: bool, show_merged: bool):
         """
         지정된 축(ax)에 모든 투영 데이터를 그리는 헬퍼 함수.
 
@@ -133,6 +135,7 @@ class Visualizer:
             show_masks (bool): 마스크를 표시할지 여부.
             show_boxes (bool): 경계 상자를 표시할지 여부.
             show_labels (bool): assembly 라벨을 표시할지 여부.
+            show_merged (bool): 병합된 박스를 표시할지 여부.
         """
         for data in projected_data_list:
             if not data.is_valid:
@@ -241,6 +244,49 @@ class Visualizer:
                         ),
                         zorder=5
                     )
+        
+        # 6. 병합된 박스 표시 (세 번째 플롯에서만)
+        if show_merged:
+            # 모든 ProjectedData에서 merged_boxes 수집 (중복 제거)
+            all_merged_boxes = []
+            for data in projected_data_list:
+                if hasattr(data, 'merged_boxes') and data.merged_boxes:
+                    # 첫 번째로 유효한 merged_boxes를 사용 (모든 ProjectedData가 동일한 merged_boxes를 가짐)
+                    all_merged_boxes = data.merged_boxes
+                    break
+            
+            # 병합된 박스들을 빨간색 굵은 선으로 표시
+            for merged_box in all_merged_boxes:
+                poly = Polygon(
+                    merged_box,
+                    closed=True,
+                    fill=False,
+                    edgecolor='red',  # 빨간색으로 강조
+                    linewidth=3,  # 굵은 선
+                    linestyle='-',  # 실선
+                    alpha=0.9,
+                    zorder=6  # 다른 요소들보다 위에 표시
+                )
+                ax.add_patch(poly)
+                
+                # 병합 박스에 "MERGED" 라벨 추가
+                center_x = np.mean(merged_box[:, 0])
+                center_y = np.mean(merged_box[:, 1])
+                ax.text(
+                    center_x, center_y, "MERGED",
+                    color='white',
+                    fontsize=12,
+                    fontweight='bold',
+                    ha='center',
+                    va='center',
+                    bbox=dict(
+                        boxstyle='round,pad=0.3',
+                        facecolor='red',
+                        edgecolor='white',
+                        alpha=0.8
+                    ),
+                    zorder=7
+                )
     
     def save_and_close(self):
         """결과 이미지를 파일로 저장하고 plot을 닫습니다."""

@@ -74,7 +74,8 @@ class Projector:
                 projected_assembly_labels=[],
                 extent=[0, 0, 0, 0],
                 clip_polygon=np.array([]),
-                is_valid=False
+                is_valid=False,
+                merged_boxes=[]  # 빈 리스트로 초기화
             )
 
         # 1. 원본 이미지 로드
@@ -91,7 +92,8 @@ class Projector:
                 projected_assembly_labels=[],
                 extent=[0, 0, 0, 0],
                 clip_polygon=np.array([]),
-                is_valid=False
+                is_valid=False,
+                merged_boxes=[]  # 빈 리스트로 초기화
             )
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         h_img, w_img = img.shape[:2]
@@ -115,7 +117,8 @@ class Projector:
                 projected_assembly_labels=[],
                 extent=[0, 0, 0, 0],
                 clip_polygon=np.array([]),
-                is_valid=False
+                is_valid=False,
+                merged_boxes=[]  # 빈 리스트로 초기화
             )
 
         dst_corners = np.array(projected_corners, dtype=np.float32)
@@ -134,7 +137,8 @@ class Projector:
                 projected_assembly_labels=[],
                 extent=[0, 0, 0, 0],
                 clip_polygon=np.array([]),
-                is_valid=False
+                is_valid=False,
+                merged_boxes=[]  # 빈 리스트로 초기화
             )
 
         min_x, max_x = np.min(dst_corners[:, 0]), np.max(dst_corners[:, 0])
@@ -155,7 +159,8 @@ class Projector:
                 projected_assembly_labels=[],
                 extent=[0, 0, 0, 0],
                 clip_polygon=np.array([]),
-                is_valid=False
+                is_valid=False,
+                merged_boxes=[]  # 빈 리스트로 초기화
             )
 
         T_matrix = np.array([
@@ -294,5 +299,6 @@ class Projector:
             projected_assembly_boxes=projected_assembly_boxes,  # assembly 박스 추가
             projected_assembly_labels=projected_assembly_labels,  # assembly label 정보 추가
             extent=[min_x, max_x, max_y, min_y],
-            clip_polygon=dst_corners
+            clip_polygon=dst_corners,
+            merged_boxes=[]  # 빈 리스트로 초기화 (overlap_analyzer에서 채워질 예정)
         )

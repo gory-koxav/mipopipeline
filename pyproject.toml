@@ -9,6 +9,7 @@ dependencies = [
     "opencv-python>=4.11.0.86",
     "redis>=6.2.0",
     "segment-anything",
+    "shapely>=2.1.1",
     "torch>=2.7.1",
     "torchaudio>=2.7.1",
     "torchvision>=0.22.1",

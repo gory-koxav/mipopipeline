@@ -69,3 +69,4 @@ class ProjectedData:
     extent: List[float]  # Matplotlib.imshow의 extent [left, right, bottom, top]
     clip_polygon: np.ndarray # 이미지 및 마스크 클리핑 경로
     is_valid: bool = True
+    merged_boxes: List[np.ndarray] = field(default_factory=list)  # 병합된 박스들 추가
