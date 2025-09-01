@@ -13,6 +13,7 @@ BASE_DIR = Path(__file__).resolve().parent
 # --- 데이터 경로 ---
 # 원본 이미지가 저장된 디렉토리입니다.
 IMAGE_DATA_DIR = BASE_DIR / "data" / "mipo" / "timelapse_250224-250321"
+# IMAGE_DATA_DIR = BASE_DIR / "data" / "mipo" / "realtime"
 
 # Add this to config.py after the existing SAM settings
 
@@ -41,7 +42,7 @@ BOTTOM_CUTOFF_PERCENT = 75
 
 # --- YOLO Object Detection 모델 설정 ---
 # 객체 탐지를 위한 YOLO 모델의 경로입니다.
-YOLO_OD_MODEL_PATH = BASE_DIR / "checkpoints" / "objectdetection_yolo" / "best.pt"
+YOLO_OD_MODEL_PATH = BASE_DIR / "checkpoints" / "objectdetection_yolo" / "best_250408.pt"
 
 # --- SAM Object Boundary Finder 설정 ---
 # 경계선 탐지를 수행할 객체 클래스 이름 목록 # 빈 리스트면 모든 클래스에 대해 경계선 탐지
@@ -161,5 +162,5 @@ VISUALIZATION_CONFIG = {
     "box_linewidth": 1.5
 }
 
-PROJECTION_TARGET_CLASSES = ["block", "panel"]
-PINJIG_TARGET_CLASSES = ["pinjig", "hbeamjig"]  # pinjig 관련 타겟 클래스
+PROJECTION_TARGET_CLASSES = BOUNDARY_TARGET_CLASSES
+PINJIG_TARGET_CLASSES = ["pinjig", "hbeamjig"]  # jig 관련 타겟 클래스

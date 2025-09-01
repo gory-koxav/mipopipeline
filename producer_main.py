@@ -1,3 +1,4 @@
+import os
 import cv2
 import time
 import numpy as np
@@ -8,7 +9,7 @@ from cctv_event_detector.repository.onvif_repository import OnvifRepository
 # [수정] StateRepository 임포트 추가
 from cctv_event_detector.repository.state_repository import StateRepository
 from cctv_event_detector.inference.facade import AIInferenceFacade
-from config import CAMERA_INFO
+from config import CAMERA_INFO, REDIS_IMAGE_CHANNEL, IMAGE_DATA_DIR
 
 
 # 로컬 환경에서 디버깅 시 이미지를 확인하기 위한 함수 (선택 사항)
@@ -56,7 +57,9 @@ def main():
 
             # (디버깅용) 캡처된 이미지를 파일로 저장합니다.
             for capture in captured_images:
-                cv2.imwrite(f"./data/{capture.image_id}.jpg", capture.image_data)
+                # cv2.imwrite(f"./data/{capture.image_id}.jpg", capture.image_data)
+                os.makedirs(f"{IMAGE_DATA_DIR}/{capture.camera_name}", exist_ok=True)
+                cv2.imwrite(f"{IMAGE_DATA_DIR}/{capture.camera_name}/{capture.image_id.split('_')[-1]}.png", capture.image_data)
             
             # 2.2. 캡처된 이미지 배치를 AI 추론 파이프라인에 전달
             inference_results = ai_facade.process_batch(captured_images)
@@ -64,7 +67,7 @@ def main():
 
             # 2.3. [최종 수정] 결과 데이터와 메타데이터를 Redis에 저장
             # 이전의 복잡한 출력 로직 대신, StateRepository에 모든 것을 위임합니다.
-            state_repo.save_batch_results(captured_images, inference_results)
+            state_repo.save_batch_results(captured_images, inference_results, REDIS_IMAGE_CHANNEL)
             
             print("----------------------------------------")
             # 다음 사이클까지 대기

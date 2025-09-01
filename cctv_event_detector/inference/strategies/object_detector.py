@@ -30,7 +30,8 @@ class YOLOObjectDetector(InferenceStrategy):
         for img in images:
             # CapturedImage.image_data는 OpenCV로 생성된 BGR 이미지입니다.
             # YOLO 모델은 RGB 입력을 기대하므로, 컬러 채널 순서를 변환합니다.
-            img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            # img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            img_rgb = img
             processed_images.append(img_rgb)
         
         # 전처리가 완료되었음을 로그로 남깁니다.
@@ -57,7 +58,8 @@ class YOLOObjectDetector(InferenceStrategy):
         processed_image_list = image_data_list # cvt 전처리 없이 바로 사용합니다.
         
         # 3. 전처리된 이미지로 추론을 수행합니다.
-        yolo_results = self.model(processed_image_list, verbose=False)
+        # yolo_results = self.model(processed_image_list, verbose=False)
+        yolo_results = self.model.predict(processed_image_list, conf=0.5, save=True ,name=f"predict_250820_mipo_test_best")
         # ✨ --- END: 핵심 수정 부분 --- ✨
 
         # 4. 추론 결과를 정리합니다. (이후 로직은 동일)

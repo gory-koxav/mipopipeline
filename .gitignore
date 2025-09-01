@@ -12,5 +12,6 @@ wheels/
 runs
 data
 output
+collected_overlay_results*
 checkpoints
 **_bak[0-9]*.py

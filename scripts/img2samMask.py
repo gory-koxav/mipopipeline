@@ -11,7 +11,8 @@ import glob
 # ==============================================================================
 
 # 기본 경로
-HOME_PATH = '/home/ksoeadmin/Projects/PYPJ/L2025022_mipo_operationsystem_uv/data/mipo/timelapse_250224-250321_pinjig'
+# HOME_PATH = '/home/ksoeadmin/Projects/PYPJ/L2025022_mipo_operationsystem_uv/data/mipo/timelapse_250224-250321_pinjig'
+HOME_PATH = '/home/ksoeadmin/Projects/PYPJ/Yolov8/source/samho/data'
 PROJECT_BASE_DIR = '/home/ksoeadmin/Projects/PYPJ/L2025022_mipo_operationsystem_uv'
 
 # SAM (Segment Anything Model) 모델 설정
@@ -20,7 +21,8 @@ SAM_MODEL_TYPE = "vit_h"
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # 처리할 카메라 폴더 이름 목록
-CAMERA_NAMES = ['C_7', 'C_2', 'C_4', 'C_6', 'C_9', 'C_11', 'D_2', 'D_4', 'D_6', 'D_7', 'D_9', 'D_11']
+# CAMERA_NAMES = ['C_7', 'C_2', 'C_4', 'C_6', 'C_9', 'C_11', 'D_2', 'D_4', 'D_6', 'D_7', 'D_9', 'D_11']
+CAMERA_NAMES = ['SP100NSY24S050']
 
 
 # ==============================================================================
@@ -178,9 +180,11 @@ def main():
 
                 # --- 설정값 (여기서 원하는 비율을 쉽게 변경하세요) ---
                 # 상단에서부터 자를 영역의 비율 (%)
-                TOP_CUTOFF_PERCENT = 20
+                # TOP_CUTOFF_PERCENT = 20
+                TOP_CUTOFF_PERCENT = 0
                 # 상단에서부터 회색으로 칠할 하단 영역이 시작될 지점의 비율 (%)
-                BOTTOM_CUTOFF_PERCENT = 75
+                # BOTTOM_CUTOFF_PERCENT = 75
+                BOTTOM_CUTOFF_PERCENT = 100
 
                 # 이미지가 제대로 로드되었는지 확인
                 if image_rgb is None:

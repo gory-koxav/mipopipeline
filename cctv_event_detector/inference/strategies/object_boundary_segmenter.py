@@ -62,6 +62,10 @@ class SAMObjectBoundarySegmenter(InferenceStrategy):
 
             boundary_masks = []
             vis_image = original_image.copy()
+
+            # 이미지 높이와 너비를 가져옵니다.
+            # vis_image는 NumPy 배열이므로, shape 속성을 통해 높이와 너비를 얻을 수 있습니다.
+            image_height, image_width = vis_image.shape[:2]
             
             # ✨ 요구사항 1: 시각화 강화를 위해 모든 YOLO 탐지 결과를 먼저 그림
             for detection in detections:
@@ -79,6 +83,22 @@ class SAMObjectBoundarySegmenter(InferenceStrategy):
                     # SAM은 [x1, y1, x2, y2] 즉 (좌상단, 우하단) 포맷을 요구합니다.
                     input_box = np.array([x_min, y_min, x_min + w, y_min + h])
                     # --- 🔴 END: 좌표 포맷 수정 ---
+
+                    # --- 🟢 START: input_box 상하 10% 확장 및 이미지 경계 처리 ---
+                    # 현재 높이 계산
+                    current_height = input_box[3] - input_box[1]
+                    # 늘릴 높이 (10%)
+                    extend_height = current_height * 0.1
+
+                    # y1을 위로 10% 확장 (감소)하되, 0보다 작아지지 않도록 합니다.
+                    input_box[1] = max(0.0, input_box[1] - extend_height) 
+                    # y2를 아래로 10% 확장 (증가)하되, 이미지 높이-1을 초과하지 않도록 합니다.
+                    input_box[3] = min(float(image_height - 1), input_box[3] + extend_height)
+                    
+                    # x1과 x2도 이미지 경계를 벗어나지 않도록 제한할 수 있습니다 (필요시)
+                    # input_box[0] = max(0.0, input_box[0])
+                    # input_box[2] = min(float(image_width - 1), input_box[2])
+                    # --- 🟢 END: input_box 상하 10% 확장 및 이미지 경계 처리 ---
 
                     masks, scores, _ = self.predictor.predict(
                         box=input_box,
